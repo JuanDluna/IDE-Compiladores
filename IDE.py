@@ -14,11 +14,11 @@ class IDE:
 
         # Menú de archivo
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Abrir", command=self.open_file)
-        file_menu.add_command(label="Guardar", command=self.save_file)
-        file_menu.add_command(label="Guardar como", command=self.save_file_as)
+        file_menu.add_command(label="Abrir", command=self.open_file, accelerator="Ctrl+O")
+        file_menu.add_command(label="Guardar", command=self.save_file, accelerator="Ctrl+S")
+        file_menu.add_command(label="Guardar como", command=self.save_file_as, accelerator="Ctrl+Shift+S")
         file_menu.add_separator()
-        file_menu.add_command(label="Salir", command=self.root.quit)
+        file_menu.add_command(label="Salir", command=self.root.quit, accelerator="Ctrl+Q")
         menubar.add_cascade(label="Archivo", menu=file_menu)
 
         # Menú de compilación
@@ -31,6 +31,12 @@ class IDE:
         menubar.add_cascade(label="Compilar", menu=compile_menu)
 
         self.root.config(menu=menubar)
+
+        # Atajos de teclado
+        self.root.bind("<Control-o>", lambda event: self.open_file())
+        self.root.bind("<Control-s>", lambda event: self.save_file())
+        self.root.bind("<Control-Shift-S>", lambda event: self.save_file_as())
+        self.root.bind("<Control-q>", lambda event: self.root.quit())
 
     def create_panels(self):
         # Panel principal (dividido en dos partes 50/50)
@@ -45,26 +51,34 @@ class IDE:
         self.line_numbers = tk.Text(self.editor_frame, width=4, padx=5, pady=5, wrap="none", state="disabled")
         self.line_numbers.pack(side=tk.LEFT, fill=tk.Y)
 
-        # Frame para el editor
+        # Frame para el editor y el scroll horizontal
         self.editor_scroll_frame = tk.Frame(self.editor_frame)
         self.editor_scroll_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         # Scroll vertical para el editor
         self.editor_scroll_y = tk.Scrollbar(self.editor_scroll_frame, orient="vertical")
 
-        # Editor de código (con ajuste de texto)
+        # Scroll horizontal para el editor (ahora está debajo del editor)
+        self.editor_scroll_x = tk.Scrollbar(self.editor_scroll_frame, orient="horizontal")
+
+        # Editor de código (con ajuste de texto desactivado para permitir scroll horizontal)
         self.editor = tk.Text(
             self.editor_scroll_frame,
-            wrap="word",  # Ajustar el texto al ancho del editor
+            wrap="none",  # Desactivar el ajuste de texto para permitir scroll horizontal
             padx=5,
             pady=5,
-            yscrollcommand=self.on_scroll,  # Vincular al evento de scroll
+            yscrollcommand=self.editor_scroll_y.set,
+            xscrollcommand=self.editor_scroll_x.set,
         )
-        self.editor.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.editor.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         # Configurar el scroll vertical
         self.editor_scroll_y.config(command=self.editor.yview)
         self.editor_scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Configurar el scroll horizontal (ahora está debajo del editor)
+        self.editor_scroll_x.config(command=self.editor.xview)
+        self.editor_scroll_x.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Panel de resultados (con pestañas)
         self.result_frame = tk.Frame(self.paned_window)
@@ -77,12 +91,16 @@ class IDE:
         self.semantic_tab = tk.Text(self.notebook, wrap="none")
         self.intermediate_tab = tk.Text(self.notebook, wrap="none")
         self.execution_tab = tk.Text(self.notebook, wrap="none")
+        self.hash_table_tab = tk.Text(self.notebook, wrap="none")
+        self.error_tab = tk.Text(self.notebook, wrap="none")
 
         self.notebook.add(self.lexical_tab, text="Análisis Léxico")
         self.notebook.add(self.syntactic_tab, text="Análisis Sintáctico")
         self.notebook.add(self.semantic_tab, text="Análisis Semántico")
         self.notebook.add(self.intermediate_tab, text="Código Intermedio")
         self.notebook.add(self.execution_tab, text="Ejecución")
+        self.notebook.add(self.hash_table_tab, text="Tabla Hash")
+        self.notebook.add(self.error_tab, text="Errores")
 
         # Añadir los paneles al panel principal (50/50)
         self.paned_window.add(self.editor_frame, minsize=400)  # Mitad izquierda
@@ -230,6 +248,16 @@ class IDE:
         # Simulación de ejecución
         self.execution_tab.delete(1.0, "end")
         self.execution_tab.insert(1.0, "Resultado de la ejecución...")
+
+    def show_hash_table(self):
+        # Simulación de la tabla hash
+        self.hash_table_tab.delete(1.0, "end")
+        self.hash_table_tab.insert(1.0, "Contenido de la tabla hash...")
+
+    def show_errors(self):
+        # Simulación de la ventana de errores
+        self.error_tab.delete(1.0, "end")
+        self.error_tab.insert(1.0, "Errores encontrados...")
 
 if __name__ == "__main__":
     root = tk.Tk()
