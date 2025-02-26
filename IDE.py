@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+from tkinter import PhotoImage
 
 class IDE:
     def __init__(self, root):
@@ -92,7 +93,6 @@ class IDE:
         self.intermediate_tab = tk.Text(self.notebook, wrap="none")
         self.execution_tab = tk.Text(self.notebook, wrap="none")
         self.hash_table_tab = tk.Text(self.notebook, wrap="none")
-        self.error_tab = tk.Text(self.notebook, wrap="none")
 
         self.notebook.add(self.lexical_tab, text="Análisis Léxico")
         self.notebook.add(self.syntactic_tab, text="Análisis Sintáctico")
@@ -100,11 +100,26 @@ class IDE:
         self.notebook.add(self.intermediate_tab, text="Código Intermedio")
         self.notebook.add(self.execution_tab, text="Ejecución")
         self.notebook.add(self.hash_table_tab, text="Tabla Hash")
-        self.notebook.add(self.error_tab, text="Errores")
 
         # Añadir los paneles al panel principal (50/50)
         self.paned_window.add(self.editor_frame, minsize=400)  # Mitad izquierda
         self.paned_window.add(self.result_frame, minsize=400)  # Mitad derecha
+
+        # Ventana de errores en la parte inferior
+        self.error_frame = tk.Frame(self.root)
+        self.error_frame.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Pestañas para los errores
+        self.error_notebook = ttk.Notebook(self.error_frame)
+        self.error_notebook.pack(fill=tk.BOTH, expand=True)
+
+        self.lexical_errors_tab = tk.Text(self.error_notebook, wrap="none")
+        self.syntactic_errors_tab = tk.Text(self.error_notebook, wrap="none")
+        self.semantic_errors_tab = tk.Text(self.error_notebook, wrap="none")
+
+        self.error_notebook.add(self.lexical_errors_tab, text="Errores Léxicos")
+        self.error_notebook.add(self.syntactic_errors_tab, text="Errores Sintácticos")
+        self.error_notebook.add(self.semantic_errors_tab, text="Errores Semánticos")
 
         # Barra de estado en la parte inferior de la ventana principal
         self.status_bar = tk.Label(self.root, text="Línea: 1, Columna: 1", bd=1, relief="sunken", anchor="w")
@@ -122,6 +137,25 @@ class IDE:
 
         # Inicializar números de línea
         self.update_line_numbers()
+
+        # Agregar íconos
+        self.load_icons()
+
+    def load_icons(self):
+        # Cargar íconos (asegúrate de tener los archivos de íconos en la misma carpeta)
+        try:
+            self.open_icon = PhotoImage(file="open_icon.png")
+            self.save_icon = PhotoImage(file="save_icon.png")
+            self.save_as_icon = PhotoImage(file="save_as_icon.png")
+            self.exit_icon = PhotoImage(file="exit_icon.png")
+
+            # Agregar íconos al menú
+            self.root.createcommand("::tk::mac::Open", self.open_file)
+            self.root.createcommand("::tk::mac::Save", self.save_file)
+            self.root.createcommand("::tk::mac::SaveAs", self.save_file_as)
+            self.root.createcommand("::tk::mac::Quit", self.root.quit)
+        except Exception as e:
+            print(f"Error al cargar íconos: {e}")
 
     def on_scroll(self, first, last):
         # Actualizar el scroll y los números de línea
@@ -256,8 +290,12 @@ class IDE:
 
     def show_errors(self):
         # Simulación de la ventana de errores
-        self.error_tab.delete(1.0, "end")
-        self.error_tab.insert(1.0, "Errores encontrados...")
+        self.lexical_errors_tab.delete(1.0, "end")
+        self.lexical_errors_tab.insert(1.0, "Errores léxicos...")
+        self.syntactic_errors_tab.delete(1.0, "end")
+        self.syntactic_errors_tab.insert(1.0, "Errores sintácticos...")
+        self.semantic_errors_tab.delete(1.0, "end")
+        self.semantic_errors_tab.insert(1.0, "Errores semánticos...")
 
 if __name__ == "__main__":
     root = tk.Tk()
