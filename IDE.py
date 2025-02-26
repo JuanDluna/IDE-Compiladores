@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from tkinter import PhotoImage
+from PIL import Image, ImageTk  # Necesitas instalar Pillow: pip install pillow
 
 class IDE:
     def __init__(self, root):
@@ -8,6 +8,7 @@ class IDE:
         self.root.title("IDE para Compilador - [Sin archivo]")
         self.current_file = None  # Ruta del archivo actual
         self.create_menu()
+        self.create_toolbar()  # Crear barra de herramientas con íconos
         self.create_panels()
 
     def create_menu(self):
@@ -24,6 +25,7 @@ class IDE:
 
         # Menú de compilación
         compile_menu = tk.Menu(menubar, tearoff=0)
+        compile_menu.add_command(label="Compilar", command=self.compile)
         compile_menu.add_command(label="Análisis Léxico", command=self.lexical_analysis)
         compile_menu.add_command(label="Análisis Sintáctico", command=self.syntactic_analysis)
         compile_menu.add_command(label="Análisis Semántico", command=self.semantic_analysis)
@@ -38,6 +40,33 @@ class IDE:
         self.root.bind("<Control-s>", lambda event: self.save_file())
         self.root.bind("<Control-Shift-S>", lambda event: self.save_file_as())
         self.root.bind("<Control-q>", lambda event: self.root.quit())
+
+    def create_toolbar(self):
+        # Crear una barra de herramientas
+        self.toolbar = tk.Frame(self.root, bd=1, relief=tk.RAISED)
+        self.toolbar.pack(side=tk.TOP, fill=tk.X)
+
+        # Cargar íconos
+        try:
+            self.open_icon = ImageTk.PhotoImage(Image.open("open_icon.png").resize((20, 20)))
+            self.save_icon = ImageTk.PhotoImage(Image.open("save_icon.png").resize((20, 20)))
+            self.save_as_icon = ImageTk.PhotoImage(Image.open("save_as_icon.png").resize((20, 20)))
+            self.exit_icon = ImageTk.PhotoImage(Image.open("exit_icon.png").resize((20, 20)))
+
+            # Botones con íconos
+            open_button = tk.Button(self.toolbar, image=self.open_icon, command=self.open_file)
+            open_button.pack(side=tk.LEFT, padx=2, pady=2)
+
+            save_button = tk.Button(self.toolbar, image=self.save_icon, command=self.save_file)
+            save_button.pack(side=tk.LEFT, padx=2, pady=2)
+
+            save_as_button = tk.Button(self.toolbar, image=self.save_as_icon, command=self.save_file_as)
+            save_as_button.pack(side=tk.LEFT, padx=2, pady=2)
+
+            exit_button = tk.Button(self.toolbar, image=self.exit_icon, command=self.root.quit)
+            exit_button.pack(side=tk.LEFT, padx=2, pady=2)
+        except Exception as e:
+            print(f"Error al cargar íconos: {e}")
 
     def create_panels(self):
         # Panel principal (dividido en dos partes 50/50)
@@ -87,12 +116,12 @@ class IDE:
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
         # Pestañas para cada tipo de análisis
-        self.lexical_tab = tk.Text(self.notebook, wrap="none")
-        self.syntactic_tab = tk.Text(self.notebook, wrap="none")
-        self.semantic_tab = tk.Text(self.notebook, wrap="none")
-        self.intermediate_tab = tk.Text(self.notebook, wrap="none")
-        self.execution_tab = tk.Text(self.notebook, wrap="none")
-        self.hash_table_tab = tk.Text(self.notebook, wrap="none")
+        self.lexical_tab = tk.Text(self.notebook, wrap="none", state="disabled")
+        self.syntactic_tab = tk.Text(self.notebook, wrap="none", state="disabled")
+        self.semantic_tab = tk.Text(self.notebook, wrap="none", state="disabled")
+        self.intermediate_tab = tk.Text(self.notebook, wrap="none", state="disabled")
+        self.execution_tab = tk.Text(self.notebook, wrap="none", state="disabled")
+        self.hash_table_tab = tk.Text(self.notebook, wrap="none", state="disabled")
 
         self.notebook.add(self.lexical_tab, text="Análisis Léxico")
         self.notebook.add(self.syntactic_tab, text="Análisis Sintáctico")
@@ -105,17 +134,17 @@ class IDE:
         self.paned_window.add(self.editor_frame, minsize=400)  # Mitad izquierda
         self.paned_window.add(self.result_frame, minsize=400)  # Mitad derecha
 
-        # Ventana de errores en la parte inferior
-        self.error_frame = tk.Frame(self.root)
-        self.error_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        # Ventana de errores en la parte inferior (con re-size vertical)
+        self.error_frame = tk.PanedWindow(self.root, orient=tk.VERTICAL)
+        self.error_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
         # Pestañas para los errores
         self.error_notebook = ttk.Notebook(self.error_frame)
-        self.error_notebook.pack(fill=tk.BOTH, expand=True)
+        self.error_frame.add(self.error_notebook)
 
-        self.lexical_errors_tab = tk.Text(self.error_notebook, wrap="none")
-        self.syntactic_errors_tab = tk.Text(self.error_notebook, wrap="none")
-        self.semantic_errors_tab = tk.Text(self.error_notebook, wrap="none")
+        self.lexical_errors_tab = tk.Text(self.error_notebook, wrap="none", state="disabled")
+        self.syntactic_errors_tab = tk.Text(self.error_notebook, wrap="none", state="disabled")
+        self.semantic_errors_tab = tk.Text(self.error_notebook, wrap="none", state="disabled")
 
         self.error_notebook.add(self.lexical_errors_tab, text="Errores Léxicos")
         self.error_notebook.add(self.syntactic_errors_tab, text="Errores Sintácticos")
@@ -138,24 +167,15 @@ class IDE:
         # Inicializar números de línea
         self.update_line_numbers()
 
-        # Agregar íconos
-        self.load_icons()
-
-    def load_icons(self):
-        # Cargar íconos (asegúrate de tener los archivos de íconos en la misma carpeta)
-        try:
-            self.open_icon = PhotoImage(file="open_icon.png")
-            self.save_icon = PhotoImage(file="save_icon.png")
-            self.save_as_icon = PhotoImage(file="save_as_icon.png")
-            self.exit_icon = PhotoImage(file="exit_icon.png")
-
-            # Agregar íconos al menú
-            self.root.createcommand("::tk::mac::Open", self.open_file)
-            self.root.createcommand("::tk::mac::Save", self.save_file)
-            self.root.createcommand("::tk::mac::SaveAs", self.save_file_as)
-            self.root.createcommand("::tk::mac::Quit", self.root.quit)
-        except Exception as e:
-            print(f"Error al cargar íconos: {e}")
+    def compile(self):
+        # Ejecutar todas las fases del compilador
+        self.lexical_analysis()
+        self.syntactic_analysis()
+        self.semantic_analysis()
+        self.intermediate_code()
+        self.execute()
+        self.show_hash_table()
+        self.show_errors()
 
     def on_scroll(self, first, last):
         # Actualizar el scroll y los números de línea
@@ -260,42 +280,62 @@ class IDE:
 
     def lexical_analysis(self):
         # Simulación de análisis léxico
+        self.lexical_tab.config(state="normal")
         self.lexical_tab.delete(1.0, "end")
         self.lexical_tab.insert(1.0, "Resultados del análisis léxico...")
+        self.lexical_tab.config(state="disabled")
 
     def syntactic_analysis(self):
         # Simulación de análisis sintáctico
+        self.syntactic_tab.config(state="normal")
         self.syntactic_tab.delete(1.0, "end")
         self.syntactic_tab.insert(1.0, "Resultados del análisis sintáctico...")
+        self.syntactic_tab.config(state="disabled")
 
     def semantic_analysis(self):
         # Simulación de análisis semántico
+        self.semantic_tab.config(state="normal")
         self.semantic_tab.delete(1.0, "end")
         self.semantic_tab.insert(1.0, "Resultados del análisis semántico...")
+        self.semantic_tab.config(state="disabled")
 
     def intermediate_code(self):
         # Simulación de código intermedio
+        self.intermediate_tab.config(state="normal")
         self.intermediate_tab.delete(1.0, "end")
         self.intermediate_tab.insert(1.0, "Código intermedio generado...")
+        self.intermediate_tab.config(state="disabled")
 
     def execute(self):
         # Simulación de ejecución
+        self.execution_tab.config(state="normal")
         self.execution_tab.delete(1.0, "end")
         self.execution_tab.insert(1.0, "Resultado de la ejecución...")
+        self.execution_tab.config(state="disabled")
 
     def show_hash_table(self):
         # Simulación de la tabla hash
+        self.hash_table_tab.config(state="normal")
         self.hash_table_tab.delete(1.0, "end")
         self.hash_table_tab.insert(1.0, "Contenido de la tabla hash...")
+        self.hash_table_tab.config(state="disabled")
 
     def show_errors(self):
         # Simulación de la ventana de errores
+        self.lexical_errors_tab.config(state="normal")
         self.lexical_errors_tab.delete(1.0, "end")
         self.lexical_errors_tab.insert(1.0, "Errores léxicos...")
+        self.lexical_errors_tab.config(state="disabled")
+
+        self.syntactic_errors_tab.config(state="normal")
         self.syntactic_errors_tab.delete(1.0, "end")
         self.syntactic_errors_tab.insert(1.0, "Errores sintácticos...")
+        self.syntactic_errors_tab.config(state="disabled")
+
+        self.semantic_errors_tab.config(state="normal")
         self.semantic_errors_tab.delete(1.0, "end")
         self.semantic_errors_tab.insert(1.0, "Errores semánticos...")
+        self.semantic_errors_tab.config(state="disabled")
 
 if __name__ == "__main__":
     root = tk.Tk()
