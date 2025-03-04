@@ -1,9 +1,9 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPlainTextEdit, QWidget, QVBoxLayout, QHBoxLayout,
-    QTabWidget, QMenuBar, QMenu, QStatusBar, QFileDialog, QToolBar, QAction, QSplitter
+    QTabWidget, QMenuBar, QMenu, QStatusBar, QFileDialog, QToolBar, QAction, QSplitter, QMessageBox
 )
-from PyQt5.QtGui import QTextCursor, QTextBlockFormat, QTextFormat, QPainter, QColor, QIcon
+from PyQt5.QtGui import QTextCursor, QTextBlockFormat, QTextFormat, QPainter, QColor, QIcon, QFont
 from PyQt5.QtCore import Qt, QRect, QSize
 
 class LineNumberArea(QWidget):
@@ -33,6 +33,11 @@ class CodeEditor(QPlainTextEdit):
         # Habilitar el scroll horizontal
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
+        # Aumentar el tamaño de la fuente
+        font = self.font()
+        font.setPointSize(12)  # Tamaño de fuente a 12 puntos
+        self.setFont(font)
+
     def line_number_area_width(self):
         """Calcula el ancho necesario para el área de números de línea."""
         digits = 1
@@ -60,7 +65,7 @@ class CodeEditor(QPlainTextEdit):
         self.line_number_area.setGeometry(QRect(cr.left(), cr.top(), self.line_number_area_width(), cr.height()))
 
     def line_number_area_paint_event(self, event):
-        """Pinta los números de línea en el área correspondiente."""
+        #Pinta los números de línea en el área correspondiente.
         painter = QPainter(self.line_number_area)
         painter.fillRect(event.rect(), QColor(Qt.lightGray))
 
@@ -98,22 +103,26 @@ class CompilerIDE(QMainWindow):
         self.addToolBar(self.toolbar)
 
         # Acciones para la barra de herramientas
+        self.new_action = QAction(QIcon("new_file_icon.png"), "Nuevo archivo", self)
         self.open_action = QAction(QIcon("open_icon.png"), "Abrir", self)
         self.save_action = QAction(QIcon("save_icon.png"), "Guardar", self)
         self.save_as_action = QAction(QIcon("save_as_icon.png"), "Guardar como", self)
         self.compile_action = QAction(QIcon("compile_icon.png"), "Compilar", self)
 
         # Atajos de teclado
+        self.new_action.setShortcut("Ctrl+N")
         self.open_action.setShortcut("Ctrl+O")
         self.save_action.setShortcut("Ctrl+S")
         self.save_as_action.setShortcut("Ctrl+Shift+S")
         self.compile_action.setShortcut("Ctrl+R")
 
+        self.new_action.triggered.connect(self.new_file)
         self.open_action.triggered.connect(self.open_file)
         self.save_action.triggered.connect(self.save_file)
         self.save_as_action.triggered.connect(self.save_file_as)
         self.compile_action.triggered.connect(self.compile)
 
+        self.toolbar.addAction(self.new_action)
         self.toolbar.addAction(self.open_action)
         self.toolbar.addAction(self.save_action)
         self.toolbar.addAction(self.save_as_action)
@@ -181,6 +190,7 @@ class CompilerIDE(QMainWindow):
         # Menú Superior
         self.menu_bar = self.menuBar()
         self.file_menu = self.menu_bar.addMenu("Archivo")
+        self.file_menu.addAction(self.new_action)
         self.file_menu.addAction(self.open_action)
         self.file_menu.addAction(self.save_action)
         self.file_menu.addAction(self.save_as_action)
@@ -208,8 +218,37 @@ class CompilerIDE(QMainWindow):
         column = cursor.columnNumber() + 1
         self.status_bar.showMessage(f"Línea: {line}, Columna: {column}")
 
+    def new_file(self):
+        """Crea un nuevo archivo, preguntando si se desea guardar los cambios no guardados."""
+        if self.has_unsaved_changes():
+            reply = QMessageBox.question(
+                self, "Cambios no guardados",
+                "¿Desea guardar los cambios antes de crear un nuevo archivo?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            )
+            if reply == QMessageBox.Yes:
+                self.save_file()
+            elif reply == QMessageBox.Cancel:
+                return  # Cancelar la creación del nuevo archivo
+
+        self.code_editor.setPlainText("")
+        self.current_file_path = None
+        self.file_content_on_disk = ""
+        self.update_window_title()
+
     def open_file(self):
         """Abre un archivo y carga su contenido en el editor."""
+        if self.has_unsaved_changes():
+            reply = QMessageBox.question(
+                self, "Cambios no guardados",
+                "¿Desea guardar los cambios antes de abrir un nuevo archivo?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            )
+            if reply == QMessageBox.Yes:
+                self.save_file()
+            elif reply == QMessageBox.Cancel:
+                return  # Cancelar la apertura del archivo
+
         file_path, _ = QFileDialog.getOpenFileName(self, "Abrir archivo", "", "Archivos de texto (*.txt)")
         if file_path:
             with open(file_path, "r") as file:
@@ -265,6 +304,13 @@ class CompilerIDE(QMainWindow):
                 self.update_window_title(has_unsaved_changes=True)
             else:
                 self.update_window_title(has_unsaved_changes=False)
+
+    def has_unsaved_changes(self):
+        """Verifica si hay cambios no guardados en el editor."""
+        if self.current_file_path:
+            current_content = self.code_editor.toPlainText()
+            return current_content != self.file_content_on_disk
+        return False
 
     def update_window_title(self, has_unsaved_changes=False):
         """Actualiza el título de la ventana con el nombre del archivo y un asterisco si hay cambios no guardados."""
