@@ -1,98 +1,229 @@
 import re
 import os
+from enum import Enum, auto
 
 # Lista de palabras reservadas
 RESERVED_WORDS = {
-    "if", "else", "while", "for", "return", "int", "float", "char", "void", "string", "bool", "true", "false", "break", "continue"
+    "if", "else", "while", "for", "return", "int", "float", "char", 
+    "void", "string", "bool", "true", "false", "break", "continue"
 }
 
-# Expresiones regulares por tipo de token
-TOKEN_REGEX = [
-    ("COMENTARIO_MULTILINEA_INICIO", re.compile(r"/\*")),
-    ("COMENTARIO_MULTILINEA_FIN", re.compile(r"\*/")),
-    ("COMENTARIO_SIMPLE", re.compile(r"//.*")),
-    ("ESPACIO", re.compile(r"[ \t]+")),
-    ("NUEVA_LINEA", re.compile(r"\n")),
-    ("ENTERO", re.compile(r"\b\d+\b")),
-    ("FLOTANTE", re.compile(r"\b\d+\.\d+\b")),
-    ("IDENTIFICADOR", re.compile(r"\b[a-zA-Z_][a-zA-Z_0-9]*\b")),
-    ("OPERADOR_ARITMETICO", re.compile(r"[+\-*/%]")),
-    ("OPERADOR_RELACIONAL", re.compile(r"(==|!=|<=|>=|<|>)")),
-    ("OPERADOR_LOGICO", re.compile(r"(&&|\|\||!)")),
-    ("OPERADOR_ASIGNACION", re.compile(r"=")),
-    ("DELIMITADOR", re.compile(r"[(){},;]")),
-    ("CADENA", re.compile(r'"[^"\n]*"')),
-    ("CARACTER", re.compile(r"'.'")),
-]
+# Estados del autómata
+class State(Enum):
+    INITIAL = auto()
+    IDENTIFIER = auto()
+    INTEGER = auto()
+    FLOAT = auto()
+    OPERATOR_ARITHMETIC = auto()
+    OPERATOR_RELATIONAL = auto()
+    OPERATOR_LOGICAL = auto()
+    OPERATOR_ASSIGNMENT = auto()
+    DELIMITER = auto()
+    STRING = auto()
+    CHAR = auto()
+    COMMENT_SINGLE = auto()
+    COMMENT_MULTI = auto()
+    COMMENT_MULTI_END = auto()
+    WHITESPACE = auto()
+    NEWLINE = auto()
+    ERROR = auto()
+    AND = auto()
+    OR = auto()
+    NOT = auto()
 
 def analizar_codigo_fuente(codigo):
     tokens = []
     errores = []
-
+    current_line = 1
     i = 0
-    line = 1
-    en_comentario_multilinea = False
-
-    while i < len(codigo):
-        fragmento = codigo[i:]
-
-        if en_comentario_multilinea:
-            fin_comentario = re.search(r"\*/", fragmento)
-            if fin_comentario:
-                i += fin_comentario.end()
-                en_comentario_multilinea = False
-                continue
-            else:
-                i = len(codigo)
+    n = len(codigo)
+    
+    while i < n:
+        state = State.INITIAL
+        lexeme = ""
+        start_pos = i
+        start_line = current_line
+        
+        while state != State.ERROR and i < n:
+            char = codigo[i]
+            
+            # Máquina de estados finitos
+            if state == State.INITIAL:
+                if char.isspace():
+                    if char == '\n':
+                        state = State.NEWLINE
+                    else:
+                        state = State.WHITESPACE
+                elif char.isalpha() or char == '_':
+                    state = State.IDENTIFIER
+                elif char.isdigit():
+                    state = State.INTEGER
+                elif char in {'+', '-', '*', '/', '%'}:
+                    state = State.OPERATOR_ARITHMETIC
+                elif char in {'<', '>', '='}:
+                    state = State.OPERATOR_RELATIONAL
+                elif char == '!':
+                    state = State.NOT
+                elif char == '&':
+                    state = State.AND
+                elif char == '|':
+                    state = State.OR
+                elif char in {'(', ')', '{', '}', ',', ';'}:
+                    state = State.DELIMITER
+                elif char == '"':
+                    state = State.STRING
+                elif char == "'":
+                    state = State.CHAR
+                elif char == '/':
+                    # Verificar si es comentario
+                    if i + 1 < n:
+                        next_char = codigo[i+1]
+                        if next_char == '/':
+                            state = State.COMMENT_SINGLE
+                        elif next_char == '*':
+                            state = State.COMMENT_MULTI
+                            i += 1  # Consume el '*'
+                        else:
+                            state = State.OPERATOR_ARITHMETIC
+                else:
+                    state = State.ERROR
+                
+            elif state == State.IDENTIFIER:
+                if not (char.isalnum() or char == '_'):
+                    break
+                
+            elif state == State.INTEGER:
+                if char == '.':
+                    state = State.FLOAT
+                elif not char.isdigit():
+                    break
+                
+            elif state == State.FLOAT:
+                if not char.isdigit():
+                    break
+                
+            elif state == State.OPERATOR_RELATIONAL:
+                if char != '=':
+                    break
+                
+            elif state == State.AND:
+                if char != '&':
+                    state = State.ERROR
+                else:
+                    state = State.OPERATOR_LOGICAL
+                    i += 1  # Consume el segundo '&'
+                    break
+                
+            elif state == State.OR:
+                if char != '|':
+                    state = State.ERROR
+                else:
+                    state = State.OPERATOR_LOGICAL
+                    i += 1  # Consume el segundo '|'
+                    break
+                    
+            elif state == State.NOT:
+                if char == '=':
+                    state = State.OPERATOR_RELATIONAL
+                    i += 1  # Consume el '='
+                    break
+                else:
+                    state = State.OPERATOR_LOGICAL
+                    break
+                    
+            elif state == State.STRING:
+                if char == '"':
+                    i += 1  # Consume la comilla de cierre
+                    break
+                elif char == '\n':
+                    state = State.ERROR
+                    break
+                    
+            elif state == State.CHAR:
+                if char == "'":
+                    i += 1  # Consume la comilla de cierre
+                    break
+                elif len(lexeme) > 3:  # 'x' tiene 3 caracteres
+                    state = State.ERROR
+                    break
+                    
+            elif state == State.COMMENT_SINGLE:
+                if char == '\n':
+                    state = State.NEWLINE
+                    break
+                    
+            elif state == State.COMMENT_MULTI:
+                if char == '*' and i + 1 < n and codigo[i+1] == '/':
+                    state = State.COMMENT_MULTI_END
+                    i += 1  # Consume el '/'
+                    break
+                elif char == '\n':
+                    current_line += 1
+                    
+            # No necesitamos procesar estos estados más allá
+            elif state in {State.WHITESPACE, State.NEWLINE, State.OPERATOR_ARITHMETIC, 
+                          State.DELIMITER, State.OPERATOR_ASSIGNMENT, State.COMMENT_MULTI_END}:
                 break
-
-        # Saltar comentarios simples
-        match = re.match(r"//.*", fragmento)
-        if match:
-            i += match.end()
-            continue
-
-        # Detectar comentarios multilínea
-        match = re.match(r"/\*", fragmento)
-        if match:
-            en_comentario_multilinea = True
-            i += match.end()
-            continue
-
-        # Saltar espacios y tabs
-        match = re.match(r"[ \t]+", fragmento)
-        if match:
-            i += match.end()
-            continue
-
-        # Nueva línea
-        if fragmento.startswith("\n"):
-            line += 1
+                
+            lexeme += char
             i += 1
-            continue
-
-        # Buscar tokens válidos
-        matched = False
-        for token_type, regex in TOKEN_REGEX:
-            match = regex.match(fragmento)
-            if match:
-                lexema = match.group()
-
-                if token_type == "IDENTIFICADOR":
-                    if lexema in RESERVED_WORDS:
-                        token_type = "PALABRA_RESERVADA"
-
-                tokens.append({"line": line, "lexema": lexema, "tipo": token_type})
-                i += len(lexema)
-                matched = True
-                break
-
-        if not matched:
-            errores.append({"line": line, "lexema": fragmento[0], "descripcion": "Símbolo no reconocido"})
-            i += 1  # Ignora el carácter no reconocido
-
+        
+        # Procesar el token reconocido
+        if state != State.ERROR and lexeme:
+            token_type = get_token_type(state, lexeme)
+            if token_type not in {"ESPACIO", "NUEVA_LINEA", "COMENTARIO_SIMPLE", "COMENTARIO_MULTILINEA_INICIO", 
+                                 "COMENTARIO_MULTILINEA_FIN"}:
+                tokens.append({"line": start_line, "lexema": lexeme, "tipo": token_type})
+            
+            if state == State.NEWLINE:
+                current_line += 1
+        elif state == State.ERROR:
+            errores.append({"line": start_line, "lexema": codigo[start_pos], "descripcion": "Símbolo no reconocido"})
+            i = start_pos + 1  # Avanza al siguiente carácter
+    
     return tokens, errores
 
+def get_token_type(state, lexeme):
+    """Mapea el estado del autómata al tipo de token"""
+    if state == State.IDENTIFIER:
+        return "PALABRA_RESERVADA" if lexeme in RESERVED_WORDS else "IDENTIFICADOR"
+    elif state == State.INTEGER:
+        return "ENTERO"
+    elif state == State.FLOAT:
+        return "FLOTANTE"
+    elif state == State.OPERATOR_ARITHMETIC:
+        return "OPERADOR_ARITMETICO"
+    elif state == State.OPERATOR_RELATIONAL:
+        return "OPERADOR_RELACIONAL"
+    elif state == State.OPERATOR_LOGICAL:
+        return "OPERADOR_LOGICO"
+    elif state == State.OPERATOR_ASSIGNMENT:
+        return "OPERADOR_ASIGNACION"
+    elif state == State.DELIMITER:
+        return "DELIMITADOR"
+    elif state == State.STRING:
+        return "CADENA"
+    elif state == State.CHAR:
+        return "CARACTER"
+    elif state == State.AND:
+        return "OPERADOR_LOGICO" if lexeme == "&&" else "ERROR"
+    elif state == State.OR:
+        return "OPERADOR_LOGICO" if lexeme == "||" else "ERROR"
+    elif state == State.NOT:
+        return "OPERADOR_LOGICO" if lexeme == "!" else "ERROR"
+    elif state == State.COMMENT_SINGLE:
+        return "COMENTARIO_SIMPLE"
+    elif state == State.COMMENT_MULTI:
+        return "COMENTARIO_MULTILINEA_INICIO"
+    elif state == State.COMMENT_MULTI_END:
+        return "COMENTARIO_MULTILINEA_FIN"
+    elif state == State.WHITESPACE:
+        return "ESPACIO"
+    elif state == State.NEWLINE:
+        return "NUEVA_LINEA"
+    return "ERROR"
+
+# Las siguientes funciones se mantienen exactamente igual para mantener compatibilidad con el IDE
 def generar_tabla_tokens(tokens):
     output = "Línea\tToken\t\tTipo\n"
     output += "-" * 40 + "\n"
