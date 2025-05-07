@@ -17,7 +17,8 @@ class State(Enum):
     OPERATOR_ARITHMETIC = auto()
     OPERATOR_RELATIONAL = auto()
     OPERATOR_LOGICAL = auto()
-    OPERATOR_ASSIGNMENT = auto()
+    OPERATOR_ASSIGNMENT = auto()  # Nuevo estado para asignación
+    OPERATOR_COMPOUND_ASSIGNMENT = auto()  # Para +=, -=, etc.
     DELIMITER = auto()
     STRING = auto()
     CHAR = auto()
@@ -58,10 +59,15 @@ def analizar_codigo_fuente(codigo):
                     state = State.IDENTIFIER
                 elif char.isdigit():
                     state = State.INTEGER
-                elif char in {'+', '-', '*', '/', '%'}:
+                elif char in {'+', '-', '*', '/'}:
+                    # Podría ser operador aritmético o parte de asignación compuesta
                     state = State.OPERATOR_ARITHMETIC
-                elif char in {'<', '>', '='}:
+                elif char == '%':
+                    state = State.OPERATOR_ARITHMETIC
+                elif char in {'<', '>'}:
                     state = State.OPERATOR_RELATIONAL
+                elif char == '=':
+                    state = State.OPERATOR_ASSIGNMENT
                 elif char == '!':
                     state = State.NOT
                 elif char == '&':
@@ -106,6 +112,23 @@ def analizar_codigo_fuente(codigo):
                 if char != '=':
                     break
                 
+            elif state == State.OPERATOR_ARITHMETIC:
+                if char == '=':
+                    state = State.OPERATOR_COMPOUND_ASSIGNMENT
+                    i += 1  # Consume el '='
+                    break
+                else:
+                    break
+                    
+            elif state == State.OPERATOR_ASSIGNMENT:
+                # Verificar si es asignación simple o relacional (==)
+                if char == '=':
+                    state = State.OPERATOR_RELATIONAL
+                    i += 1  # Consume el segundo '='
+                    break
+                else:
+                    break
+                    
             elif state == State.AND:
                 if char != '&':
                     state = State.ERROR
@@ -161,8 +184,8 @@ def analizar_codigo_fuente(codigo):
                     current_line += 1
                     
             # No necesitamos procesar estos estados más allá
-            elif state in {State.WHITESPACE, State.NEWLINE, State.OPERATOR_ARITHMETIC, 
-                          State.DELIMITER, State.OPERATOR_ASSIGNMENT, State.COMMENT_MULTI_END}:
+            elif state in {State.WHITESPACE, State.NEWLINE, State.DELIMITER, 
+                          State.OPERATOR_COMPOUND_ASSIGNMENT, State.COMMENT_MULTI_END}:
                 break
                 
             lexeme += char
@@ -199,6 +222,8 @@ def get_token_type(state, lexeme):
         return "OPERADOR_LOGICO"
     elif state == State.OPERATOR_ASSIGNMENT:
         return "OPERADOR_ASIGNACION"
+    elif state == State.OPERATOR_COMPOUND_ASSIGNMENT:
+        return "OPERADOR_ASIGNACION"  # Puedes usar otro tipo si prefieres diferenciarlos
     elif state == State.DELIMITER:
         return "DELIMITADOR"
     elif state == State.STRING:
@@ -256,8 +281,14 @@ def analizar_desde_archivo(ruta_archivo):
         codigo = f.read()
 
     tokens, errores = analizar_codigo_fuente(codigo)
-    tabla_tokens = generar_tabla_tokens(tokens)
-    tabla_errores = generar_tabla_errores(errores)
-    guardar_tokens_en_archivo(tokens, ruta_archivo)
+    
+    # Generar tablas para mostrar en el IDE
+    tabla_tokens = generar_tabla_tokens(tokens)  # Con cabeceras para mostrar en el IDE
+    tabla_errores = generar_tabla_errores(errores)  # Con cabeceras para mostrar en el IDE
+    
+    # Guardar archivo tokens.txt en raíz del proyecto (sin cabeceras)
+    with open("tokens.txt", "w", encoding="utf-8") as f:
+        for token in tokens:
+            f.write(f"{token['line']}\t{token['lexema']}\t{token['tipo']}\n")
 
     return tabla_tokens, tabla_errores

@@ -323,10 +323,7 @@ class CompilerIDE(QMainWindow):
             self.lexical_analysis_tab.setPlainText(tabla_tokens)
             self.lexical_errors_tab.setPlainText(tabla_errores)
 
-            # Guardar archivo de tokens
-            with open("tokens.txt", "w", encoding="utf-8") as f:
-                f.write(tabla_tokens)
-
+            # Ya no generamos el archivo aquí, se hace en el analizador léxico
         except Exception as e:
             QMessageBox.critical(self, "Error en análisis léxico", str(e))
 
