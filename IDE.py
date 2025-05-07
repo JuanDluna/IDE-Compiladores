@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QTextCursor, QTextBlockFormat, QTextFormat, QPainter, QColor, QIcon, QFont
 from PyQt5.QtCore import Qt, QRect, QSize
+from phases import lexical, syntactic, semantic, intermediate_code
 
 class LineNumberArea(QWidget):
     """Widget personalizado para mostrar los números de línea."""
@@ -103,11 +104,11 @@ class CompilerIDE(QMainWindow):
         self.addToolBar(self.toolbar)
 
         # Acciones para la barra de herramientas
-        self.new_action = QAction(QIcon("new_file_icon.png"), "Nuevo archivo", self)
-        self.open_action = QAction(QIcon("open_icon.png"), "Abrir", self)
-        self.save_action = QAction(QIcon("save_icon.png"), "Guardar", self)
-        self.save_as_action = QAction(QIcon("save_as_icon.png"), "Guardar como", self)
-        self.compile_action = QAction(QIcon("compile_icon.png"), "Compilar", self)
+        self.new_action = QAction(QIcon("media/new_file_icon.png"), "Nuevo archivo", self)
+        self.open_action = QAction(QIcon("media/open_icon.png"), "Abrir", self)
+        self.save_action = QAction(QIcon("media/save_icon.png"), "Guardar", self)
+        self.save_as_action = QAction(QIcon("media/save_as_icon.png"), "Guardar como", self)
+        self.compile_action = QAction(QIcon("media/compile_icon.png"), "Compilar", self)
 
         # Atajos de teclado
         self.new_action.setShortcut("Ctrl+N")
@@ -195,16 +196,16 @@ class CompilerIDE(QMainWindow):
         self.file_menu.addAction(self.save_action)
         self.file_menu.addAction(self.save_as_action)
         self.file_menu.addSeparator()
-        self.exit_action = QAction(QIcon("exit_icon.png"), "Cerrar", self)
+        self.exit_action = QAction(QIcon("media/exit_icon.png"), "Cerrar", self)
         self.exit_action.triggered.connect(self.close)
         self.file_menu.addAction(self.exit_action)
 
         self.compile_menu = self.menu_bar.addMenu("Compilar")
         self.compile_menu.addAction(self.compile_action)
         self.compile_menu.addSeparator()
-        self.compile_menu.addAction("Análisis Léxico", self.lexical_analysis)
-        self.compile_menu.addAction("Análisis Sintáctico", self.syntax_analysis)
-        self.compile_menu.addAction("Análisis Semántico", self.semantic_analysis)
+        self.compile_menu.addAction("Análisis Léxico", self.run_lexical_phase)
+        self.compile_menu.addAction("Análisis Sintáctico", self.run_syntactic_phase)
+        self.compile_menu.addAction("Análisis Semántico", self.run_semantic_phase)
 
         # Barra de Estado
         self.status_bar = QStatusBar()
@@ -281,20 +282,78 @@ class CompilerIDE(QMainWindow):
             self.update_window_title()
 
     def compile(self):
-        """Función de compilación (placeholder)."""
-        print("Compilando...")
+        if not self.ensure_file_saved():
+            return
+        self.run_lexical_phase()
+        self.run_syntactic_phase()
+        self.run_semantic_phase()
+        self.run_intermediate_code_phase()
 
-    def lexical_analysis(self):
-        """Función de análisis léxico (placeholder)."""
-        print("Realizando análisis léxico...")
+    def ensure_file_saved(self):
+        """Verifica que el archivo esté guardado antes de compilar."""
+        if not self.current_file_path:
+            respuesta = QMessageBox.question(
+                self, "Archivo no guardado",
+                "El archivo no ha sido guardado. ¿Deseas guardarlo ahora?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if respuesta == QMessageBox.Yes:
+                self.save_file()
+            else:
+                return False
 
-    def syntax_analysis(self):
-        """Función de análisis sintáctico (placeholder)."""
-        print("Realizando análisis sintáctico...")
+        current_content = self.code_editor.toPlainText()
+        if current_content != self.file_content_on_disk:
+            respuesta = QMessageBox.question(
+                self, "Cambios no guardados",
+                "Existen cambios sin guardar. ¿Deseas guardarlos antes de compilar?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            )
+            if respuesta == QMessageBox.Yes:
+                self.save_file()
+            elif respuesta == QMessageBox.Cancel:
+                return False
+        return True
 
-    def semantic_analysis(self):
-        """Función de análisis semántico (placeholder)."""
-        print("Realizando análisis semántico...")
+    def run_lexical_phase(self):
+        try:
+            tabla_tokens, tabla_errores = lexical.analizar_desde_archivo(self.current_file_path)
+
+            # Mostrar resultados en el IDE
+            self.lexical_analysis_tab.setPlainText(tabla_tokens)
+            self.lexical_errors_tab.setPlainText(tabla_errores)
+
+            # Guardar archivo de tokens
+            with open("tokens.txt", "w", encoding="utf-8") as f:
+                f.write(tabla_tokens)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error en análisis léxico", str(e))
+
+    def run_syntactic_phase(self):
+        try:
+            source_code = self.code_editor.toPlainText()
+            resultado = syntactic.analyze(source_code)
+            self.syntax_analysis_tab.setPlainText(resultado)
+        except Exception:
+            self.syntax_analysis_tab.setPlainText("Fase sintáctica aún no implementada.")
+
+    def run_semantic_phase(self):
+        try:
+            source_code = self.code_editor.toPlainText()
+            resultado = semantic.analyze(source_code)
+            self.semantic_analysis_tab.setPlainText(resultado)
+        except Exception:
+            self.semantic_analysis_tab.setPlainText("Fase semántica aún no implementada.")
+
+    def run_intermediate_code_phase(self):
+        try:
+            source_code = self.code_editor.toPlainText()
+            resultado = intermediate_code.generate(source_code)
+            self.intermediate_code_tab.setPlainText(resultado)
+        except Exception:
+            self.intermediate_code_tab.setPlainText("Generación de código intermedio aún no implementada.")
+
 
     def check_for_changes(self):
         """Verifica si hay cambios no guardados en el editor."""
