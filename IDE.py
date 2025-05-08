@@ -1,4 +1,5 @@
 import sys
+import re
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPlainTextEdit, QWidget, QVBoxLayout, QHBoxLayout,
     QTabWidget, QMenuBar, QMenu, QStatusBar, QFileDialog, QToolBar, QAction, QSplitter, QMessageBox
@@ -27,6 +28,7 @@ class CodeEditor(QPlainTextEdit):
         self.blockCountChanged.connect(self.update_line_number_area_width)
         self.updateRequest.connect(self.update_line_number_area)
         self.update_line_number_area_width()
+        self.setup_highlighter()
 
         # Desactivar el ajuste de línea para permitir scroll horizontal
         self.setLineWrapMode(QPlainTextEdit.NoWrap)
@@ -88,6 +90,103 @@ class CodeEditor(QPlainTextEdit):
             top = bottom
             bottom = int(top + self.blockBoundingRect(block).height())
             block_number += 1
+    def setup_highlighter(self):
+        from PyQt5.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
+        
+        class Highlighter(QSyntaxHighlighter):
+            def __init__(self, parent=None):
+                super().__init__(parent)
+                self.highlighting_rules = []
+                self.multiline_comment_format = QTextCharFormat()
+                
+                # 1. ROSA - Identificadores (Color 2)
+                identifier_format = QTextCharFormat()
+                identifier_format.setForeground(QColor("#FF00FF"))  # Rosa
+                self.highlighting_rules.append((r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', identifier_format))
+                
+                # 2. ROJO - Palabras reservadas (Color 4)
+                reserved_format = QTextCharFormat()
+                reserved_format.setForeground(QColor("#FF0000"))  # Rojo
+                reserved_format.setFontWeight(75)  # Hacerlas un poco más gruesas
+                for word in lexical.RESERVED_WORDS:
+                    self.highlighting_rules.append((r'\b' + word + r'\b', reserved_format))
+                
+                # 3. AZUL - Operadores aritméticos (Color 5)
+                arithmetic_format = QTextCharFormat()
+                arithmetic_format.setForeground(QColor("#0000FF"))  # Azul
+                self.highlighting_rules.append((r'[\+\-\*/%]', arithmetic_format))
+                self.highlighting_rules.append((r'\+\+', arithmetic_format))
+                self.highlighting_rules.append((r'--', arithmetic_format))
+                self.highlighting_rules.append((r'\*\*', arithmetic_format))
+                
+                # 4. VERDE - Números (Color 1)
+                number_format = QTextCharFormat()
+                number_format.setForeground(QColor("#00AA00"))  # Verde
+                self.highlighting_rules.append((r'\b\d+\b', number_format))
+                self.highlighting_rules.append((r'\b\d+\.\d+\b', number_format))
+                
+                # 5. MARRÓN - Operadores relacionales y lógicos (Color 6)
+                relational_format = QTextCharFormat()
+                relational_format.setForeground(QColor("#AA5500"))  # Marrón
+                self.highlighting_rules.append((r'<=|>=|==|!=|<|>', relational_format))
+                self.highlighting_rules.append((r'&&|\|\||!', relational_format))
+                
+                # 6. AMARILLO - Comentarios (Color 3)
+                comment_format = QTextCharFormat()
+                comment_format.setForeground(QColor("#AAAA00"))  # Amarillo
+                self.highlighting_rules.append((r'//.*', comment_format))
+                
+                # Formato para comentarios multilínea
+                self.multiline_comment_format = QTextCharFormat()
+                self.multiline_comment_format.setForeground(QColor("#AAAA00"))  # Amarillo
+                
+                # Delimitadores y otros
+                symbol_format = QTextCharFormat()
+                symbol_format.setForeground(QColor("#000000"))  # Negro
+                self.highlighting_rules.append((r'[\(\)\[\]\{\},;]', symbol_format))
+                
+                # Patrón para inicio/fin de comentarios multilínea
+                self.comment_start = re.compile(r'/\*')
+                self.comment_end = re.compile(r'\*/')
+            
+            def highlightBlock(self, text):
+                # Aplicar reglas normales primero
+                for pattern, format in self.highlighting_rules:
+                    expression = re.compile(pattern)
+                    for match in expression.finditer(text):
+                        start, end = match.span()
+                        self.setFormat(start, end - start, format)
+                
+                # Manejo especial para comentarios multilínea
+                self.setCurrentBlockState(0)
+                
+                # Inicializar start_index
+                start_index = 0
+                if self.previousBlockState() != 1:
+                    start_match = self.comment_start.search(text)
+                    start_index = start_match.start() if start_match else -1
+                
+                # Buscar comentarios multilínea
+                while start_index >= 0:
+                    end_match = self.comment_end.search(text, start_index)
+                    if end_match:
+                        end_index = end_match.end()
+                        length = end_index - start_index
+                        self.setCurrentBlockState(0)
+                    else:
+                        self.setCurrentBlockState(1)
+                        length = len(text) - start_index
+                    
+                    # Aplicar formato al comentario
+                    self.setFormat(start_index, length, self.multiline_comment_format)
+                    
+                    # Buscar siguiente comentario
+                    next_match = self.comment_start.search(text, start_index + length)
+                    start_index = next_match.start() if next_match else -1
+        
+        self.highlighter = Highlighter(self.document())
+
+
 
 class CompilerIDE(QMainWindow):
     def __init__(self):
