@@ -1,4 +1,9 @@
 # lexical.py
+RESERVED_WORDS = {
+    "if", "else", "end", "do", "while", "switch", "case",
+    "int", "float", "main", "cin", "cout", "then", "until"
+}
+
 def analizar_codigo_fuente(codigo):
     tokens = []
     errores = []
@@ -24,7 +29,7 @@ def analizar_codigo_fuente(codigo):
                 if c == "\n":
                     fila += 1
                     columna = 0
-                estado = "INICIO"
+                # Saltar espacios
             elif c.isdigit():
                 estado = "NUM_ENTERO"
                 lexema += c
@@ -32,19 +37,20 @@ def analizar_codigo_fuente(codigo):
                 estado = "IDENT"
                 lexema += c
             elif c == "/":
-                estado = "POSIBLE_COMENT"
+                estado = "POSIBLE_COMENTARIO"
                 lexema += c
-            elif c in "+-*/%=<>!&|":
-                estado = "OP"
+            elif c in "+-*=<>!%":
+                estado = "OPERADOR"
+                lexema += c
+            elif c in "&|":
+                estado = "OPERADOR_LOGICO_POTENCIAL"
                 lexema += c
             elif c in "{}[]();,":
                 lexema += c
                 agregar_token("DELIMITADOR")
-                estado = "INICIO"
             else:
                 lexema += c
                 agregar_error("Carácter no reconocido")
-                estado = "INICIO"
         elif estado == "NUM_ENTERO":
             if c.isdigit():
                 lexema += c
@@ -54,13 +60,13 @@ def analizar_codigo_fuente(codigo):
             else:
                 agregar_token("NUMERO_ENTERO")
                 estado = "INICIO"
-                continue  # Reanalizar este carácter
+                continue
         elif estado == "PUNTO_DECIMAL":
             if c.isdigit():
                 lexema += c
                 estado = "NUM_FLOTANTE"
             else:
-                agregar_error("Punto decimal mal usado")
+                agregar_error("Punto decimal mal utilizado")
                 estado = "INICIO"
                 continue
         elif estado == "NUM_FLOTANTE":
@@ -78,65 +84,95 @@ def analizar_codigo_fuente(codigo):
                 agregar_token(tipo)
                 estado = "INICIO"
                 continue
-        elif estado == "POSIBLE_COMENT":
+        elif estado == "POSIBLE_COMENTARIO":
             if c == "/":
-                estado = "COMENT_UNILINEA"
+                estado = "COMENTARIO_UNILINEA"
                 lexema += c
             elif c == "*":
-                estado = "COMENT_MULTILINEA"
+                estado = "COMENTARIO_MULTILINEA"
                 lexema += c
             else:
                 agregar_token("OPERADOR_ARITMETICO")
                 estado = "INICIO"
                 continue
-        elif estado == "COMENT_UNILINEA":
+        elif estado == "COMENTARIO_UNILINEA":
             lexema += c
             if c == "\n":
                 agregar_token("COMENTARIO_UNILINEA")
                 fila += 1
                 columna = 0
                 estado = "INICIO"
-        elif estado == "COMENT_MULTILINEA":
+        elif estado == "COMENTARIO_MULTILINEA":
             lexema += c
             if c == "*" and i + 1 < longitud and codigo[i + 1] == "/":
                 lexema += "/"
                 i += 1
                 agregar_token("COMENTARIO_MULTILINEA")
                 estado = "INICIO"
-        elif estado == "OP":
-            if (lexema + c) in ("<=", ">=", "==", "!=", "&&", "||", "**"):
+        elif estado == "OPERADOR_LOGICO_POTENCIAL":
+            # Solo aceptamos && y || completos
+            if (lexema == "&" and c == "&") or (lexema == "|" and c == "|"):
                 lexema += c
-                agregar_token("OPERADOR")
-                estado = "INICIO"
-            elif c == "=":
-                lexema += c
-                agregar_token("OPERADOR")
+                agregar_token("OPERADOR_LOGICO")
                 estado = "INICIO"
             else:
-                agregar_token("OPERADOR")
+                agregar_error("Operador lógico incompleto (se esperaba '&&' o '||')")
+                estado = "INICIO"
+                continue  # Re-procesar el carácter actual
+        
+        elif estado == "OPERADOR":
+            # Manejo de operadores aritméticos, relacionales y asignación
+            if c == "=" and lexema in "+-*/%=<>!":
+                lexema += c
+                if lexema in ("==", "!=", "<=", ">="):
+                    agregar_token("OPERADOR_RELACIONAL")
+                else:
+                    agregar_token("OPERADOR_ASIGNACION")
+                estado = "INICIO"
+            elif lexema == c and c in "+-":
+                lexema += c
+                agregar_token("OPERADOR_ARITMETICO")  # ++ o --
+                estado = "INICIO"
+            else:
+                tipo = {
+                    "+": "OPERADOR_ARITMETICO",
+                    "-": "OPERADOR_ARITMETICO",
+                    "*": "OPERADOR_ARITMETICO",
+                    "/": "OPERADOR_ARITMETICO",
+                    "%": "OPERADOR_ARITMETICO",
+                    "=": "OPERADOR_ASIGNACION",
+                    "<": "OPERADOR_RELACIONAL",
+                    ">": "OPERADOR_RELACIONAL",
+                    "!": "OPERADOR_LOGICO"
+                }.get(lexema, "OPERADOR")
+                agregar_token(tipo)
                 estado = "INICIO"
                 continue
 
         i += 1
         columna += 1
 
-    # Estado final pendiente
-    if estado == "NUM_ENTERO":
-        agregar_token("NUMERO_ENTERO")
-    elif estado == "NUM_FLOTANTE":
-        agregar_token("NUMERO_FLOTANTE")
-    elif estado == "IDENT":
-        tipo = "PALABRA_RESERVADA" if lexema in RESERVED_WORDS else "IDENTIFICADOR"
-        agregar_token(tipo)
+    # Finalizar token si queda uno abierto
+    if lexema:
+        if estado == "NUM_ENTERO":
+            agregar_token("NUMERO_ENTERO")
+        elif estado == "NUM_FLOTANTE":
+            agregar_token("NUMERO_FLOTANTE")
+        elif estado == "IDENT":
+            tipo = "PALABRA_RESERVADA" if lexema in RESERVED_WORDS else "IDENTIFICADOR"
+            agregar_token(tipo)
+        elif estado == "COMENTARIO_UNILINEA":
+            agregar_token("COMENTARIO_UNILINEA")
+        elif estado == "COMENTARIO_MULTILINEA":
+            agregar_error("Comentario multilínea sin cerrar")
+        elif estado == "PUNTO_DECIMAL":
+            agregar_error("Punto decimal mal utilizado")
+        elif estado == "OPERADOR":
+            agregar_token("OPERADOR")
+        elif estado == "OPERADOR_LOGICO_POTENCIAL":
+            agregar_error("Operador lógico incompleto (se esperaba '&&' o '||')")
 
     return tokens, errores
-
-
-RESERVED_WORDS = {
-    "if", "else", "end", "do", "while", "switch", "case",
-    "int", "float", "main", "cin", "cout", "then", "until"
-}
-
 
 def generar_tabla_tokens(tokens):
     output = "Línea\tColumna\tToken\t\tTipo\n"
