@@ -96,18 +96,14 @@ def analizar_codigo_fuente(codigo):
                 estado = "INICIO"
                 continue
         elif estado == "COMENTARIO_UNILINEA":
-            lexema += c
             if c == "\n":
-                agregar_token("COMENTARIO_UNILINEA")
                 fila += 1
                 columna = 0
                 estado = "INICIO"
         elif estado == "COMENTARIO_MULTILINEA":
-            lexema += c
             if c == "*" and i + 1 < longitud and codigo[i + 1] == "/":
                 lexema += "/"
                 i += 1
-                agregar_token("COMENTARIO_MULTILINEA")
                 estado = "INICIO"
         elif estado == "OPERADOR_LOGICO_POTENCIAL":
             # Solo aceptamos && y || completos
