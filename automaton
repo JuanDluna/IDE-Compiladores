@@ -1,0 +1,11 @@
+digraph {
+	rankdir=LR
+	q0 [label="q0 (Inicio)" fillcolor=lightblue shape=circle style=filled]
+	q1 [label="q1 (Aceptación)" fillcolor=lightgreen shape=doublecircle style=filled]
+	q2 [label=q2 fillcolor=lightgray shape=circle style=filled]
+	q0 -> q1 [label=a]
+	q1 -> q1 [label="a-z"]
+	q1 -> q2 [label="b-z"]
+	q2 -> q2 [label="a-z"]
+	q2 -> q1 [label=a]
+}
