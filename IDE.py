@@ -1,12 +1,14 @@
 import sys
 import re
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QPlainTextEdit, QWidget, QVBoxLayout, QHBoxLayout,
+    QApplication, QMainWindow, QPlainTextEdit, QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
     QTabWidget, QMenuBar, QMenu, QStatusBar, QFileDialog, QToolBar, QAction, QSplitter, QMessageBox
 )
 from PyQt5.QtGui import QTextCursor, QTextBlockFormat, QTextFormat, QPainter, QColor, QIcon, QFont
 from PyQt5.QtCore import Qt, QRect, QSize
 from phases import lexical, syntactic, semantic, intermediate_code
+from util.treeNode import ASTNode
+
 
 class LineNumberArea(QWidget):
     """Widget personalizado para mostrar los números de línea."""
@@ -235,7 +237,8 @@ class CompilerIDE(QMainWindow):
         # Panel de Análisis (pestañas)
         self.analysis_tabs = QTabWidget()
         self.lexical_analysis_tab = QPlainTextEdit()
-        self.syntax_analysis_tab = QPlainTextEdit()
+        self.syntax_analysis_tab = QTreeWidget()
+        self.syntax_analysis_tab.setHeaderHidden(True)
         self.semantic_analysis_tab = QPlainTextEdit()
         self.intermediate_code_tab = QPlainTextEdit()
         self.execution_tab = QPlainTextEdit()
@@ -243,7 +246,6 @@ class CompilerIDE(QMainWindow):
 
         # Configurar los paneles de análisis como de solo lectura
         self.lexical_analysis_tab.setReadOnly(True)
-        self.syntax_analysis_tab.setReadOnly(True)
         self.semantic_analysis_tab.setReadOnly(True)
         self.intermediate_code_tab.setReadOnly(True)
         self.execution_tab.setReadOnly(True)
@@ -425,14 +427,15 @@ class CompilerIDE(QMainWindow):
             # Ya no generamos el archivo aquí, se hace en el analizador léxico
         except Exception as e:
             QMessageBox.critical(self, "Error en análisis léxico", str(e))
+            
 
     def run_syntactic_phase(self):
         try:
-            source_code = self.code_editor.toPlainText()
-            resultado = syntactic.analyze(source_code)
-            self.syntax_analysis_tab.setPlainText(resultado)
-        except Exception:
-            self.syntax_analysis_tab.setPlainText("Fase sintáctica aún no implementada.")
+            ast_root = syntactic.get_ast()
+            fill_tree_widget(self.syntax_analysis_tab, ast_root)
+        except Exception as e:
+            QMessageBox.critical(self, "Error en análisis sintáctico", str(e))
+
 
     def run_semantic_phase(self):
         try:
@@ -476,6 +479,23 @@ class CompilerIDE(QMainWindow):
             self.setWindowTitle(title)
         else:
             self.setWindowTitle("IDE para Compilador")
+
+def fill_tree_widget(widget: QTreeWidget, ast_root: ASTNode):
+        widget.clear()
+
+        def add_node_recursively(parent_widget_item, ast_node):
+            item = QTreeWidgetItem([ast_node.name])
+            parent_widget_item.addChild(item)
+            for child in ast_node.children:
+                add_node_recursively(item, child)
+
+        root_item = QTreeWidgetItem([ast_root.name])
+        widget.addTopLevelItem(root_item)
+
+        for child in ast_root.children:
+            add_node_recursively(root_item, child)
+
+        widget.expandAll()  # Opcional, puedes colapsarlo si lo deseas
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

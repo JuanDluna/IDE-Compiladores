@@ -195,9 +195,14 @@ def analizar_desde_archivo(ruta_archivo):
 
     tokens, errores = analizar_codigo_fuente(codigo)
 
-    # Guardar tokens en archivo
+    # Guardar tokens en archivo con línea y columna
     with open("tokens.txt", "w", encoding="utf-8") as f:
         for token in tokens:
-            f.write(f"{token['lexema']}\t{token['tipo']}\n")
+            lexema = token["lexema"]
+            tipo = token["tipo"]
+            linea = token["line"]
+            columna = token["column"]
+            f.write(f"{lexema}\t{tipo}\t{linea}\t{columna}\n")
 
     return generar_tabla_tokens(tokens), generar_tabla_errores(errores)
+
