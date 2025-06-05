@@ -432,9 +432,10 @@ class CompilerIDE(QMainWindow):
     def run_syntactic_phase(self):
         try:
             ast_root = syntactic.get_ast()
-            fill_tree_widget(self.syntax_analysis_tab, ast_root)
+            fill_tree_widget(self.syntax_analysis_tab, ast_root, self.syntax_errors_tab)
         except Exception as e:
             QMessageBox.critical(self, "Error en análisis sintáctico", str(e))
+
 
 
     def run_semantic_phase(self):
@@ -480,22 +481,38 @@ class CompilerIDE(QMainWindow):
         else:
             self.setWindowTitle("IDE para Compilador")
 
-def fill_tree_widget(widget: QTreeWidget, ast_root: ASTNode):
-        widget.clear()
+def fill_tree_widget(widget: QTreeWidget, ast_root: ASTNode, error_output_widget: QPlainTextEdit):
+    widget.clear()
+    error_output_widget.clear()
+    errores = []
 
-        def add_node_recursively(parent_widget_item, ast_node):
-            item = QTreeWidgetItem([ast_node.name])
-            parent_widget_item.addChild(item)
-            for child in ast_node.children:
-                add_node_recursively(item, child)
+    def add_node_recursively(parent_widget_item, ast_node):
+        # Si es un nodo de error, lo almacenamos y no lo añadimos al árbol visual
+        if "Error" in ast_node.name:
+            errores.append(ast_node.name)
+            return
 
-        root_item = QTreeWidgetItem([ast_root.name])
-        widget.addTopLevelItem(root_item)
+        item = QTreeWidgetItem([ast_node.name])
+        parent_widget_item.addChild(item)
 
-        for child in ast_root.children:
-            add_node_recursively(root_item, child)
+        for child in ast_node.children:
+            add_node_recursively(item, child)
 
-        widget.expandAll()  # Opcional, puedes colapsarlo si lo deseas
+    # Raíz del árbol
+    root_item = QTreeWidgetItem([ast_root.name])
+    widget.addTopLevelItem(root_item)
+
+    for child in ast_root.children:
+        add_node_recursively(root_item, child)
+
+    widget.expandAll()  # Puedes quitar esto si quieres que se muestre colapsado por defecto
+
+    # Mostrar errores recolectados
+    if errores:
+        error_output_widget.setPlainText("\n".join(errores))
+    else:
+        error_output_widget.setPlainText("Sin errores sintácticos.")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

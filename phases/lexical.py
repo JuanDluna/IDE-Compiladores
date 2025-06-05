@@ -1,7 +1,8 @@
 # lexical.py
 RESERVED_WORDS = {
     "if", "else", "end", "do", "while", "switch", "case",
-    "int", "float", "main", "cin", "cout", "then", "until"
+    "int", "float", "main", "cin", "cout", "then", "until", "return",
+    "break", "continue", "for", "in", "function", "var", "let", "const",
 }
 
 def analizar_codigo_fuente(codigo):
@@ -157,10 +158,6 @@ def analizar_codigo_fuente(codigo):
         elif estado == "IDENT":
             tipo = "PALABRA_RESERVADA" if lexema in RESERVED_WORDS else "IDENTIFICADOR"
             agregar_token(tipo)
-        elif estado == "COMENTARIO_UNILINEA":
-            agregar_token("COMENTARIO_UNILINEA")
-        elif estado == "COMENTARIO_MULTILINEA":
-            agregar_error("Comentario multilínea sin cerrar")
         elif estado == "PUNTO_DECIMAL":
             agregar_error("Punto decimal mal utilizado")
         elif estado == "OPERADOR":

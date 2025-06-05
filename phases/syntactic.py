@@ -8,6 +8,7 @@ class Parser:
         self.current_token = self.tokens[0] if tokens else None
         self.line = self.current_token[2] if tokens else 0
         self.column = self.current_token[3] if tokens else 0
+        self.fatal_error = False  # Flag to track fatal errors
         print(f"Parser initialized with {len(tokens)} tokens")
 
     def advance(self):
@@ -30,11 +31,16 @@ class Parser:
         print("Peeking at end of tokens")
         return None
 
-    def consume(self, token_type=None, token_value=None):
-        print(f"Consuming: Expected {token_value or token_type}, Current token: {self.current_token}")
+    def consume(self, token_type=None, token_value=None, required=False):
+        print(f"Consuming: Expected {token_value or token_type}, Current token: {self.current_token}, Required: {required}")
+        if self.fatal_error:
+            return None
+        
         if not self.current_token:
             print(f"Error: No current token at {self.line}:{self.column}")
-            return ASTNode(f"Error at {self.line}:{self.column}: Unexpected end of input")
+            error_node = ASTNode(f"Fatal Error at {self.line}:{self.column}: Unexpected end of input")
+            self.fatal_error = True
+            return error_node
         
         current_type = self.current_token[1]
         current_value = self.current_token[0]
@@ -42,7 +48,12 @@ class Parser:
         if (token_type and current_type != token_type) or (token_value and current_value != token_value):
             print(f"Error: Mismatch at {self.line}:{self.column} - Expected {token_value or token_type}, got {current_value}")
             error_node = ASTNode(f"Error at {self.line}:{self.column}: Expected {token_value or token_type}, got {current_value}")
-            self.advance()  # Force advance on mismatch to prevent cycling
+            if required:  # Missing terminal is a fatal error
+                print(f"Fatal Error: Missing required terminal {token_value or token_type}, stopping analysis")
+                error_node.name = f"Fatal Error at {self.line}:{self.column}: Missing required terminal {token_value or token_type}"
+                self.fatal_error = True
+            else:
+                self.advance()  # Advance for non-fatal errors
             return error_node
         
         consumed_token = ASTNode(f"{current_type}: {current_value} at {self.line}:{self.column}")
@@ -54,236 +65,298 @@ class Parser:
         print("Starting parse of program")
         program_node = ASTNode("Programa")
         
-        if not self.consume("IDENTIFICADOR", "main"):
-            print(f"Error: 'main' not found at start, skipping to next valid structure")
-            program_node.add_child(ASTNode(f"Error at {self.line}:{self.column}: Expected 'main'"))
-            while self.current_token and self.current_token[0] != "{":  # Skip until block start
-                self.advance()
+        # Optional return type before main
+        if self.current_token and self.current_token[1] == "PALABRA_RESERVADA" and self.current_token[0] in ["int", "float", "bool", "double", "boolean"]:
+            type_node = self.parse_tipo_dato()
+            program_node.add_child(type_node)
         
-        if self.current_token and self.current_token[0] == "(":
-            self.consume("DELIMITADOR", "(")
-            self.consume("DELIMITADOR", ")")
-        
-        if not self.consume("DELIMITADOR", "{"):
-            print(f"Error: '{{' not found after 'main()', skipping")
-            program_node.add_child(ASTNode(f"Error at {self.line}:{self.column}: Expected '{{'"))
+        # Required main and following terminals
+        main_node = self.consume("PALABRA_RESERVADA", "main", required=True)
+        program_node.add_child(main_node)
+        if self.fatal_error:
             return program_node
         
-        print("Parsing lista_declaracion")
-        lista_declaracion = self.parse_lista_declaracion()
-        program_node.add_child(lista_declaracion)
+        program_node.add_child(self.consume("DELIMITADOR", "(", required=True))
+        if self.fatal_error:
+            return program_node
         
-        if self.current_token and self.current_token[0] != "}":
-            print(f"Error: '}}' not found, current token: {self.current_token}")
-            program_node.add_child(ASTNode(f"Error at {self.line}:{self.column}: Expected '}}'"))
-        else:
-            self.consume("DELIMITADOR", "}")
+        program_node.add_child(self.consume("DELIMITADOR", ")", required=True))
+        if self.fatal_error:
+            return program_node
+        
+        program_node.add_child(self.consume("DELIMITADOR", "{", required=True))
+        if self.fatal_error:
+            return program_node
+        
+        if self.current_token and not self.fatal_error:
+            print("Parsing lista_declaraciones")
+            lista_declaraciones = self.parse_lista_declaraciones()
+            program_node.add_child(lista_declaraciones)
+        
+        if not self.fatal_error:
+            program_node.add_child(self.consume("DELIMITADOR", "}", required=True))
         
         print("Parse completed")
         return program_node
 
-    def parse_lista_declaracion(self):
-        print("Entering parse_lista_declaracion")
-        lista_node = ASTNode("ListaDeclaracion")
+    def parse_lista_declaraciones(self):
+        print("Entering parse_lista_declaraciones")
+        lista_node = ASTNode("ListaDeclaraciones")
         iteration = 0
-        max_iterations = 100  # Safeguard against infinite loops
-        while self.current_token and self.current_token[0] != "}" and iteration < max_iterations:
+        max_iterations = 100
+        while self.current_token and self.current_token[0] != "}" and iteration < max_iterations and not self.fatal_error:
             print(f"Processing next declaration, current token: {self.current_token}")
             decl = self.parse_declaracion()
             if decl:
                 lista_node.add_child(decl)
+                if "Fatal Error" in decl.name:
+                    break
             else:
-                print(f"Skipping invalid token: {self.current_token}")
-                self.advance()
+                print(f"Skipping invalid declaration, advancing to next semicolon or brace")
+                while self.current_token and self.current_token[0] not in [";", "}", "else"] and not self.fatal_error:
+                    self.advance()
+                if self.current_token and self.current_token[0] in [";", "else"] and not self.fatal_error:
+                    self.advance()
             iteration += 1
         if iteration >= max_iterations:
             print("Warning: Max iterations reached, possible infinite loop")
-        print("Exiting parse_lista_declaracion")
+        print("Exiting parse_lista_declaraciones")
         return lista_node
 
     def parse_declaracion(self):
         print("Entering parse_declaracion")
+        if self.fatal_error:
+            return None
         decl_node = ASTNode("Declaracion")
-        if self.current_token and self.current_token[1] == "PALABRA_RESERVADA" and self.current_token[0] in ["int", "float", "bool"]:
+        if self.current_token and self.current_token[1] == "PALABRA_RESERVADA" and self.current_token[0] in ["int", "float", "bool", "double", "boolean"]:
             print("Parsing declaracion_variable")
             decl_var = self.parse_declaracion_variable()
             decl_node.add_child(decl_var)
         else:
-            print("Parsing lista_sentencias")
-            lista_sent = self.parse_lista_sentencias()
-            decl_node.add_child(lista_sent)
+            print("Parsing sentencia")
+            sentencia = self.parse_sentencia()
+            decl_node.add_child(sentencia)
         print("Exiting parse_declaracion")
         return decl_node
 
     def parse_declaracion_variable(self):
         print("Entering parse_declaracion_variable")
+        if self.fatal_error:
+            return None
         decl_node = ASTNode("DeclaracionVariable")
         
-        type_node = self.consume("PALABRA_RESERVADA")
+        type_node = self.parse_tipo_dato()
         if not type_node or "Error" in type_node.name:
             print(f"Error in type consumption: {type_node.name if type_node else 'None'}")
             return type_node if type_node else ASTNode(f"Error at {self.line}:{self.column}: Expected type")
         decl_node.add_child(type_node)
         
-        id_node = self.consume("IDENTIFICADOR")
-        if not id_node or "Error" in id_node.name:
-            print(f"Error in identifier consumption: {id_node.name if id_node else 'None'}")
-            decl_node.add_child(ASTNode(f"Error at {self.line}:{self.column}: Expected identifier"))
+        id_node = self.consume("IDENTIFICADOR", required=True)
+        if not id_node or "Fatal Error" in id_node.name:
+            decl_node.add_child(id_node if id_node else ASTNode(f"Fatal Error at {self.line}:{self.column}: Expected identifier"))
             return decl_node
         decl_node.add_child(id_node)
         
-        if self.current_token and self.current_token[0] == "=":
-            print("Parsing assignment in declaration")
-            assign_op = self.consume("OPERADOR_ASIGNACION", "=")
-            decl_node.add_child(assign_op)
-            expr_node = self.parse_expression()
+        if self.current_token and self.current_token[0] == "=" and not self.fatal_error:
+            print("Parsing optional assignment")
+            decl_node.add_child(self.consume("OPERADOR_ASIGNACION", "=", required=True))
+            if self.fatal_error:
+                return decl_node
+            expr_node = self.parse_expresion()
             if expr_node:
                 decl_node.add_child(expr_node)
         
-        semicolon = self.consume("DELIMITADOR", ";")
-        if "Error" in semicolon.name:
-            print(f"Error in semicolon consumption: {semicolon.name}")
-            decl_node.add_child(semicolon)
-        
+        semicolon_node = self.consume("DELIMITADOR", ";", required=True)
+        decl_node.add_child(semicolon_node)
         print("Exiting parse_declaracion_variable")
         return decl_node
 
+    def parse_tipo_dato(self):
+        print("Entering parse_tipo_dato")
+        if self.fatal_error:
+            return None
+        if self.current_token and self.current_token[1] == "PALABRA_RESERVADA" and self.current_token[0] in ["int", "float", "bool", "double", "boolean"]:
+            return self.consume("PALABRA_RESERVADA")
+        return ASTNode(f"Error at {self.line}:{self.column}: Expected type (int, float, bool, double, boolean)")
+
+    def parse_sentencia(self):
+        print("Entering parse_sentencia")
+        if not self.current_token or self.fatal_error:
+            return None
+        
+        token_value = self.current_token[0]
+        if token_value == "{":
+            return self.parse_bloque()
+        elif self.current_token[1] == "IDENTIFICADOR" and self.peek() and self.peek()[0] == "=":
+            return self.parse_asignacion()
+        elif self.current_token[1] == "PALABRA_RESERVADA" and self.current_token[0] == "if":
+            return self.parse_sentencia_if()
+        elif self.current_token[1] == "PALABRA_RESERVADA" and self.current_token[0] == "while":
+            return self.parse_sentencia_while()
+        elif self.current_token[1] == "PALABRA_RESERVADA" and self.current_token[0] == "return":
+            return self.parse_sentencia_return()
+        elif self.current_token[1] == "PALABRA_RESERVADA" and self.current_token[0] == "cin":
+            return self.parse_entrada()
+        elif self.current_token[1] == "PALABRA_RESERVADA" and self.current_token[0] == "cout":
+            return self.parse_salida()
+        else:
+            return ASTNode(f"Error at {self.line}:{self.column}: Unexpected token in sentencia")
+
+    def parse_bloque(self):
+        print("Entering parse_bloque")
+        if self.fatal_error:
+            return None
+        block_node = ASTNode("Bloque")
+        block_node.add_child(self.consume("DELIMITADOR", "{", required=True))
+        if self.fatal_error:
+            return block_node
+        block_node.add_child(self.parse_lista_sentencias())
+        block_node.add_child(self.consume("DELIMITADOR", "}", required=True))
+        print("Exiting parse_bloque")
+        return block_node
+
     def parse_lista_sentencias(self):
         print("Entering parse_lista_sentencias")
+        if self.fatal_error:
+            return None
         lista_node = ASTNode("ListaSentencias")
         iteration = 0
-        max_iterations = 100  # Safeguard against infinite loops
-        while self.current_token and self.current_token[0] not in ["}", "else", "end"] and iteration < max_iterations:
-            print(f"Processing next statement, current token: {self.current_token}")
-            stmt = self.parse_statement()
+        max_iterations = 100
+        while self.current_token and self.current_token[0] not in ["}", "else"] and iteration < max_iterations and not self.fatal_error:
+            print(f"Processing next sentencia, current token: {self.current_token}")
+            stmt = self.parse_sentencia()
             if stmt:
                 lista_node.add_child(stmt)
+                if "Fatal Error" in stmt.name:
+                    break
             else:
-                print(f"Skipping invalid token in statements: {self.current_token}")
-                self.advance()
+                print(f"Skipping invalid sentencia, advancing to next semicolon or brace")
+                while self.current_token and self.current_token[0] not in [";", "}", "else"] and not self.fatal_error:
+                    self.advance()
+                if self.current_token and self.current_token[0] in [";", "else"] and not self.fatal_error:
+                    self.advance()
             iteration += 1
         if iteration >= max_iterations:
             print("Warning: Max iterations reached, possible infinite loop")
         print("Exiting parse_lista_sentencias")
         return lista_node
 
-    def parse_statement(self):
-        print(f"Entering parse_statement, current token: {self.current_token}")
-        if not self.current_token:
-            print("No current token, exiting parse_statement")
+    def parse_asignacion(self):
+        print("Entering parse_asignacion")
+        if self.fatal_error:
             return None
-        
-        token_type = self.current_token[1]
-        token_value = self.current_token[0]
-        
-        if token_type == "PALABRA_RESERVADA" and token_value in ["int", "float", "bool"]:
-            print("Parsing declaration variable")
-            return self.parse_declaracion_variable()
-        elif token_type == "PALABRA_RESERVADA" and token_value == "if":
-            print("Parsing if statement")
-            return self.parse_if_statement()
-        elif token_type == "PALABRA_RESERVADA" and token_value == "while":
-            print("Parsing while loop")
-            return self.parse_while_loop()
-        elif token_type == "PALABRA_RESERVADA" and token_value == "return":
-            print("Parsing return statement")
-            return self.parse_return_statement()
-        elif token_type == "IDENTIFICADOR" and self.peek() and self.peek()[0] == "=":
-            print("Parsing assignment")
-            return self.parse_assignment()
-        elif token_value == "{":
-            print("Parsing block")
-            return self.parse_block()
-        else:
-            print("Parsing expression as statement")
-            expr = self.parse_expression()
-            if expr and self.current_token and self.current_token[0] == ";":
-                self.consume("DELIMITADOR", ";")
-            return expr
-
-    def parse_block(self):
-        print("Entering parse_block")
-        block_node = ASTNode("Block")
-        
-        if not self.consume("DELIMITADOR", "{"):
-            print(f"Error: Expected '{{' at {self.line}:{self.column}")
-            block_node.add_child(ASTNode(f"Error at {self.line}:{self.column}: Expected '{{'"))
-            return block_node
-        
-        print("Parsing block contents")
-        block_node.add_child(self.parse_lista_sentencias())
-        
-        if not self.consume("DELIMITADOR", "}"):
-            print(f"Error: Expected '}}' at {self.line}:{self.column}")
-            block_node.add_child(ASTNode(f"Error at {self.line}:{self.column}: Expected '}}'"))
-        
-        print("Exiting parse_block")
-        return block_node
-
-    def parse_assignment(self):
-        print("Entering parse_assignment")
-        assignment_node = ASTNode("Asignacion")
-        
-        id_node = self.consume("IDENTIFICADOR")
-        if not id_node or "Error" in id_node.name:
-            print(f"Error in identifier: {id_node.name if id_node else 'None'}")
-            return id_node if id_node else ASTNode(f"Error at {self.line}:{self.column}: Expected identifier")
-        assignment_node.add_child(id_node)
-        
-        assign_op = self.consume("OPERADOR_ASIGNACION", "=")
-        if "Error" in assign_op.name:
-            print(f"Error in assignment operator: {assign_op.name}")
-            assignment_node.add_child(assign_op)
-            return assignment_node
-        assignment_node.add_child(assign_op)
-        
-        expr_node = self.parse_expression()
+        assign_node = ASTNode("Asignacion")
+        assign_node.add_child(self.consume("IDENTIFICADOR", required=True))
+        if self.fatal_error:
+            return assign_node
+        assign_node.add_child(self.consume("OPERADOR_ASIGNACION", "=", required=True))
+        if self.fatal_error:
+            return assign_node
+        expr_node = self.parse_expresion()
         if expr_node:
-            assignment_node.add_child(expr_node)
-        
-        semicolon = self.consume("DELIMITADOR", ";")
-        if "Error" in semicolon.name:
-            print(f"Error in semicolon: {semicolon.name}")
-            assignment_node.add_child(semicolon)
-        
-        print("Exiting parse_assignment")
-        return assignment_node
+            assign_node.add_child(expr_node)
+        assign_node.add_child(self.consume("DELIMITADOR", ";", required=True))
+        print("Exiting parse_asignacion")
+        return assign_node
 
-    def parse_return_statement(self):
-        print("Entering parse_return_statement")
-        return_node = ASTNode("Return")
-        
-        self.consume("PALABRA_RESERVADA", "return")
-        
-        expr_node = self.parse_expression()
-        if expr_node:
-            return_node.add_child(expr_node)
-        
-        semicolon = self.consume("DELIMITADOR", ";")
-        if "Error" in semicolon.name:
-            print(f"Error in semicolon: {semicolon.name}")
-            return_node.add_child(semicolon)
-        
-        print("Exiting parse_return_statement")
+    def parse_sentencia_if(self):
+        print("Entering parse_sentencia_if")
+        if self.fatal_error:
+            return None
+        if_node = ASTNode("SentenciaIf")
+        if_node.add_child(self.consume("PALABRA_RESERVADA", "if", required=True))
+        if self.fatal_error:
+            return if_node
+        if_node.add_child(self.consume("DELIMITADOR", "(", required=True))
+        if self.fatal_error:
+            return if_node
+        if_node.add_child(self.parse_expresion())
+        if_node.add_child(self.consume("DELIMITADOR", ")", required=True))
+        if self.fatal_error:
+            return if_node
+        if_node.add_child(self.parse_sentencia())
+        if self.current_token and self.current_token[0] == "else" and not self.fatal_error:
+            if_node.add_child(self.consume("PALABRA_RESERVADA", "else"))
+            if_node.add_child(self.parse_sentencia())
+        print("Exiting parse_sentencia_if")
+        return if_node
+
+    def parse_sentencia_while(self):
+        print("Entering parse_sentencia_while")
+        if self.fatal_error:
+            return None
+        while_node = ASTNode("SentenciaWhile")
+        while_node.add_child(self.consume("PALABRA_RESERVADA", "while", required=True))
+        if self.fatal_error:
+            return while_node
+        while_node.add_child(self.consume("DELIMITADOR", "(", required=True))
+        if self.fatal_error:
+            return while_node
+        while_node.add_child(self.parse_expresion())
+        while_node.add_child(self.consume("DELIMITADOR", ")", required=True))
+        if self.fatal_error:
+            return while_node
+        while_node.add_child(self.parse_sentencia())
+        print("Exiting parse_sentencia_while")
+        return while_node
+
+    def parse_sentencia_return(self):
+        print("Entering parse_sentencia_return")
+        if self.fatal_error:
+            return None
+        return_node = ASTNode("SentenciaReturn")
+        return_node.add_child(self.consume("PALABRA_RESERVADA", "return", required=True))
+        if self.fatal_error:
+            return return_node
+        return_node.add_child(self.parse_expresion())
+        return_node.add_child(self.consume("DELIMITADOR", ";", required=True))
+        print("Exiting parse_sentencia_return")
         return return_node
 
-    def parse_expression(self):
-        print("Entering parse_expression")
-        return self.parse_expresion()
+    def parse_entrada(self):
+        print("Entering parse_entrada")
+        if self.fatal_error:
+            return None
+        entrada_node = ASTNode("Entrada")
+        entrada_node.add_child(self.consume("PALABRA_RESERVADA", "cin", required=True))
+        if self.fatal_error:
+            return entrada_node
+        entrada_node.add_child(self.consume("OPERADOR_ARITMETICO", ">>", required=True))
+        if self.fatal_error:
+            return entrada_node
+        entrada_node.add_child(self.consume("IDENTIFICADOR", required=True))
+        if self.fatal_error:
+            return entrada_node
+        entrada_node.add_child(self.consume("DELIMITADOR", ";", required=True))
+        print("Exiting parse_entrada")
+        return entrada_node
+
+    def parse_salida(self):
+        print("Entering parse_salida")
+        if self.fatal_error:
+            return None
+        salida_node = ASTNode("Salida")
+        salida_node.add_child(self.consume("PALABRA_RESERVADA", "cout", required=True))
+        if self.fatal_error:
+            return salida_node
+        salida_node.add_child(self.consume("OPERADOR_ARITMETICO", "<<", required=True))
+        if self.fatal_error:
+            return salida_node
+        salida_node.add_child(self.parse_expresion())
+        salida_node.add_child(self.consume("DELIMITADOR", ";", required=True))
+        print("Exiting parse_salida")
+        return salida_node
 
     def parse_expresion(self):
         print("Entering parse_expresion")
+        if self.fatal_error:
+            return None
         expr_node = ASTNode("Expresion")
         left = self.parse_expresion_simple()
         if left:
             expr_node.add_child(left)
-        if self.current_token and self.current_token[0] in ["<", "<=", ">", ">=", "==", "!="]:
-            rel_op = self.consume("OPERADOR_RELACIONAL")
-            if not rel_op or "Error" in rel_op.name:
-                print(f"Error in relational operator: {rel_op.name}")
-                expr_node.add_child(rel_op)
-                return expr_node
-            expr_node.add_child(rel_op)
+        if self.current_token and self.current_token[1] == "OPERADOR_RELACIONAL" and not self.fatal_error:
+            expr_node.add_child(self.consume("OPERADOR_RELACIONAL"))
             right = self.parse_expresion_simple()
             if right:
                 expr_node.add_child(right)
@@ -292,11 +365,13 @@ class Parser:
 
     def parse_expresion_simple(self):
         print("Entering parse_expresion_simple")
+        if self.fatal_error:
+            return None
         expr_node = ASTNode("ExpresionSimple")
         left = self.parse_termino()
         if left:
             expr_node.add_child(left)
-        while self.current_token and self.current_token[0] in ["+", "-"]:
+        while self.current_token and self.current_token[0] in ["+", "-"] and not self.fatal_error:
             op_node = ASTNode(f"Operator: {self.current_token[0]} at {self.line}:{self.column}")
             self.advance()
             right = self.parse_termino()
@@ -310,11 +385,13 @@ class Parser:
 
     def parse_termino(self):
         print("Entering parse_termino")
+        if self.fatal_error:
+            return None
         term_node = ASTNode("Termino")
         left = self.parse_factor()
         if left:
             term_node.add_child(left)
-        while self.current_token and self.current_token[0] in ["*", "/", "%"]:
+        while self.current_token and self.current_token[0] in ["*", "/", "%"] and not self.fatal_error:
             op_node = ASTNode(f"Operator: {self.current_token[0]} at {self.line}:{self.column}")
             self.advance()
             right = self.parse_factor()
@@ -328,89 +405,23 @@ class Parser:
 
     def parse_factor(self):
         print("Entering parse_factor")
+        if self.fatal_error:
+            return None
         factor_node = ASTNode("Factor")
-        if self.current_token and self.current_token[0] == "(":
-            print("Parsing parenthesized expression")
-            self.consume("DELIMITADOR", "(")
-            expr = self.parse_expresion()
-            if expr:
-                factor_node.add_child(expr)
-            closing = self.consume("DELIMITADOR", ")")
-            if "Error" in closing.name:
-                print(f"Error in closing parenthesis: {closing.name}")
-                factor_node.add_child(closing)
-            return factor_node
-        elif self.current_token and self.current_token[1] in ["NUMERO_ENTERO", "NUMERO_FLOTANTE"]:
-            print(f"Consuming number: {self.current_token}")
-            return self.consume(self.current_token[1])
+        if self.current_token and self.current_token[1] in ["NUMERO_ENTERO", "NUMERO_FLOTANTE"]:
+            factor_node.add_child(self.consume(self.current_token[1]))
         elif self.current_token and self.current_token[1] == "IDENTIFICADOR":
-            print(f"Consuming identifier: {self.current_token}")
-            return self.consume("IDENTIFICADOR")
+            factor_node.add_child(self.consume("IDENTIFICADOR"))
+        elif self.current_token and self.current_token[0] == "(":
+            factor_node.add_child(self.consume("DELIMITADOR", "(", required=True))
+            if self.fatal_error:
+                return factor_node
+            factor_node.add_child(self.parse_expresion())
+            factor_node.add_child(self.consume("DELIMITADOR", ")", required=True))
         else:
-            print(f"Error: Unexpected token at {self.line}:{self.column} - {self.current_token}")
-            return ASTNode(f"Error at {self.line}:{self.column}: Expected factor")
-
-    def parse_if_statement(self):
-        print("Entering parse_if_statement")
-        if_node = ASTNode("If")
-        
-        if_node.add_child(self.consume("PALABRA_RESERVADA", "if"))
-        
-        open_paren = self.consume("DELIMITADOR", "(")
-        if "Error" in open_paren.name:
-            print(f"Error in opening parenthesis: {open_paren.name}")
-            if_node.add_child(open_paren)
-        
-        cond_node = self.parse_expression()
-        if cond_node:
-            if_node.add_child(cond_node)
-        
-        close_paren = self.consume("DELIMITADOR", ")")
-        if "Error" in close_paren.name:
-            print(f"Error in closing parenthesis: {close_paren.name}")
-            if_node.add_child(close_paren)
-        
-        body_node = self.parse_statement()
-        if body_node:
-            if_node.add_child(body_node)
-        
-        if self.current_token and self.current_token[0] == "else":
-            print("Parsing else clause")
-            else_node = self.consume("PALABRA_RESERVADA", "else")
-            if_node.add_child(else_node)
-            else_body = self.parse_statement()
-            if else_body:
-                if_node.add_child(else_body)
-        
-        print("Exiting parse_if_statement")
-        return if_node
-
-    def parse_while_loop(self):
-        print("Entering parse_while_loop")
-        while_node = ASTNode("While")
-        
-        while_node.add_child(self.consume("PALABRA_RESERVADA", "while"))
-        
-        open_paren = self.consume("DELIMITADOR", "(")
-        if "Error" in open_paren.name:
-            print(f"Error in opening parenthesis: {open_paren.name}")
-            while_node.add_child(open_paren)
-        
-        cond_node = self.parse_expression()
-        if cond_node:
-            while_node.add_child(cond_node)
-        
-        close_paren = self.consume("DELIMITADOR", ")")
-        if "Error" in close_paren.name:
-            print(f"Error in closing parenthesis: {close_paren.name}")
-            while_node.add_child(close_paren)
-        
-        body_node = self.parse_statement()
-        if body_node:
-            while_node.add_child(body_node)
-        
-        print("Exiting parse_while_loop")
-        return while_node
+            factor_node.add_child(ASTNode(f"Error at {self.line}:{self.column}: Expected factor"))
+        print("Exiting parse_factor")
+        return factor_node
 
 def read_tokens_from_file(path="tokens.txt"):
     tokens = []

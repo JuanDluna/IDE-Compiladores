@@ -8,7 +8,7 @@ aaaa
 /*Comentario multilinea*/
 
 
-/*+++++++
++++++++
 int x,y,z;
 real a,b,c;
  suma=45;
@@ -51,7 +51,7 @@ do
 
 
 
-5);*/
+5);
  //while(y==0){
     cin mas;
     cout x;

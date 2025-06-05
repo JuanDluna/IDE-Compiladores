@@ -1,0 +1,9 @@
+main {
+    int num
+    float valor = 3.5
+
+    if (num > valor {
+        num = num + 1;
+    }
+
+    return num
