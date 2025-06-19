@@ -118,8 +118,12 @@ def analizar_codigo_fuente(codigo):
                 continue  # Re-procesar el carácter actual
         
         elif estado == "OPERADOR":
-            # Manejo de operadores aritméticos, relacionales y asignación
-            if c == "=" and lexema in "+-*/%=<>!":
+            # Manejo de operadores aritméticos, relacionales, asignación y entrada/salida
+            if (lexema == ">" and c == ">") or (lexema == "<" and c == "<"):
+                lexema += c
+                agregar_token("OPERADOR_ARITMETICO")
+                estado = "INICIO"
+            elif c == "=" and lexema in "+-*/%=<>!":
                 lexema += c
                 if lexema in ("==", "!=", "<=", ">="):
                     agregar_token("OPERADOR_RELACIONAL")
@@ -161,7 +165,10 @@ def analizar_codigo_fuente(codigo):
         elif estado == "PUNTO_DECIMAL":
             agregar_error("Punto decimal mal utilizado")
         elif estado == "OPERADOR":
-            agregar_token("OPERADOR")
+            if lexema in ("<<", ">>"):
+                agregar_token("OPERADOR_ARITMETICO")
+            else:
+                agregar_token("OPERADOR")
         elif estado == "OPERADOR_LOGICO_POTENCIAL":
             agregar_error("Operador lógico incompleto (se esperaba '&&' o '||')")
 
