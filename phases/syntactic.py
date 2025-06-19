@@ -277,19 +277,40 @@ class Parser:
             if not op_token:
                 return self.error("Error inesperado en operador de asignación")
             
+            # Si es ++ o --, expandir como a = a + 1 o a = a - 1
+            if op_token.lexema in ("++", "--"):
+                root = ASTNode(f"Expansión de {op_token.lexema}")
+                # Nodo de asignación
+                assign_node = ASTNode("=")
+                id_node_left = ASTNode(self.format_token(id_token))
+                assign_node.add_child(id_node_left)
+                # Operación suma/resta
+                op = "+" if op_token.lexema == "++" else "-"
+                op_node = ASTNode(op)
+                id_node_right = ASTNode(self.format_token(id_token))
+                one_node = ASTNode("1")
+                op_node.add_child(id_node_right)
+                op_node.add_child(one_node)
+                assign_node.add_child(op_node)
+                root.add_child(assign_node)
+                if not self.require("DELIMITADOR", ";"):
+                    return None
+                return root
+            
             node = ASTNode(self.format_token(op_token))
             id_node = ASTNode(self.format_token(id_token))
             node.add_child(id_node)
             
-            # Si es ++ o --, no necesitamos expresión
-            if op_token.lexema in ("++", "--"):
-                if not self.require("DELIMITADOR", ";"):
-                    return None
-                return node
-            
             # Para otros operadores, necesitamos una expresión
-            if expr := self.parse_expresion():
-                node.add_child(expr)
+            if op_token.lexema not in ("++", "--"):
+                if expr := self.parse_expresion():
+                    node.add_child(expr)
+                    if not self.require("DELIMITADOR", ";"):
+                        return None
+                    return node
+                else:
+                    return None
+            else:
                 if not self.require("DELIMITADOR", ";"):
                     return None
                 return node
