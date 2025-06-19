@@ -1,5 +1,6 @@
 import sys
 import re
+import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPlainTextEdit, QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
     QTabWidget, QMenuBar, QMenu, QStatusBar, QFileDialog, QToolBar, QAction, QSplitter, QMessageBox
@@ -36,7 +37,7 @@ class CodeEditor(QPlainTextEdit):
         self.setLineWrapMode(QPlainTextEdit.NoWrap)
 
         # Habilitar el scroll horizontal
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         # Aumentar el tamaño de la fuente
         font = self.font()
@@ -72,7 +73,7 @@ class CodeEditor(QPlainTextEdit):
     def line_number_area_paint_event(self, event):
         #Pinta los números de línea en el área correspondiente.
         painter = QPainter(self.line_number_area)
-        painter.fillRect(event.rect(), QColor(Qt.lightGray))
+        painter.fillRect(event.rect(), QColor(Qt.GlobalColor.lightGray))
 
         block = self.firstVisibleBlock()
         block_number = block.blockNumber()
@@ -82,10 +83,10 @@ class CodeEditor(QPlainTextEdit):
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
                 number = str(block_number + 1)
-                painter.setPen(Qt.black)
+                painter.setPen(Qt.GlobalColor.black)
                 painter.drawText(
                     0, top, self.line_number_area.width(), self.fontMetrics().height(),
-                    Qt.AlignRight, number
+                    Qt.AlignmentFlag.AlignRight, number
                 )
 
             block = block.next()
@@ -152,6 +153,9 @@ class CodeEditor(QPlainTextEdit):
                 self.comment_end = re.compile(r'\*/')
             
             def highlightBlock(self, text):
+                if text is None:
+                    return
+                
                 # Aplicar reglas normales primero
                 for pattern, format in self.highlighting_rules:
                     expression = re.compile(pattern)
@@ -218,12 +222,14 @@ class CompilerIDE(QMainWindow):
         self.save_as_action.setShortcut("Ctrl+Shift+S")
         self.compile_action.setShortcut("Ctrl+R")
 
+        # Conectar acciones
         self.new_action.triggered.connect(self.new_file)
         self.open_action.triggered.connect(self.open_file)
         self.save_action.triggered.connect(self.save_file)
         self.save_as_action.triggered.connect(self.save_file_as)
         self.compile_action.triggered.connect(self.compile)
 
+        # Agregar acciones a la barra de herramientas
         self.toolbar.addAction(self.new_action)
         self.toolbar.addAction(self.open_action)
         self.toolbar.addAction(self.save_action)
@@ -232,7 +238,7 @@ class CompilerIDE(QMainWindow):
 
         # Editor de código
         self.code_editor = CodeEditor()
-        self.code_editor.textChanged.connect(self.check_for_changes)  # Monitorear cambios
+        self.code_editor.textChanged.connect(self.check_for_changes)
 
         # Panel de Análisis (pestañas)
         self.analysis_tabs = QTabWidget()
@@ -274,11 +280,11 @@ class CompilerIDE(QMainWindow):
         self.error_tabs.addTab(self.semantic_errors_tab, "Errores Semánticos")
 
         # Layout principal con QSplitter para paneles reajustables
-        self.splitter_top = QSplitter(Qt.Horizontal)
+        self.splitter_top = QSplitter(Qt.Orientation.Horizontal)
         self.splitter_top.addWidget(self.code_editor)
         self.splitter_top.addWidget(self.analysis_tabs)
 
-        self.splitter_bottom = QSplitter(Qt.Vertical)
+        self.splitter_bottom = QSplitter(Qt.Orientation.Vertical)
         self.splitter_bottom.addWidget(self.splitter_top)
         self.splitter_bottom.addWidget(self.error_tabs)
 
@@ -290,23 +296,41 @@ class CompilerIDE(QMainWindow):
         self.setCentralWidget(self.central_widget)
 
         # Menú Superior
-        self.menu_bar = self.menuBar()
-        self.file_menu = self.menu_bar.addMenu("Archivo")
+        self.menu_bar = QMenuBar(self)
+        self.setMenuBar(self.menu_bar)
+        
+        # Menú Archivo
+        self.file_menu = QMenu("Archivo", self.menu_bar)
+        self.menu_bar.addMenu(self.file_menu)
         self.file_menu.addAction(self.new_action)
         self.file_menu.addAction(self.open_action)
         self.file_menu.addAction(self.save_action)
         self.file_menu.addAction(self.save_as_action)
         self.file_menu.addSeparator()
+        
+        # Acción de salir
         self.exit_action = QAction(QIcon("media/exit_icon.png"), "Cerrar", self)
-        self.exit_action.triggered.connect(self.close)
+        self.exit_action.triggered.connect(self.close_window)
         self.file_menu.addAction(self.exit_action)
 
-        self.compile_menu = self.menu_bar.addMenu("Compilar")
+        # Menú Compilar
+        self.compile_menu = QMenu("Compilar", self.menu_bar)
+        self.menu_bar.addMenu(self.compile_menu)
         self.compile_menu.addAction(self.compile_action)
         self.compile_menu.addSeparator()
-        self.compile_menu.addAction("Análisis Léxico", self.run_lexical_phase)
-        self.compile_menu.addAction("Análisis Sintáctico", self.run_syntactic_phase)
-        self.compile_menu.addAction("Análisis Semántico", self.run_semantic_phase)
+        
+        # Acciones de análisis
+        self.lexical_action = QAction("Análisis Léxico", self)
+        self.lexical_action.triggered.connect(self.run_lexical_phase)
+        self.compile_menu.addAction(self.lexical_action)
+        
+        self.syntactic_action = QAction("Análisis Sintáctico", self)
+        self.syntactic_action.triggered.connect(self.run_syntactic_phase)
+        self.compile_menu.addAction(self.syntactic_action)
+        
+        self.semantic_action = QAction("Análisis Semántico", self)
+        self.semantic_action.triggered.connect(self.run_semantic_phase)
+        self.compile_menu.addAction(self.semantic_action)
 
         # Barra de Estado
         self.status_bar = QStatusBar()
@@ -431,29 +455,44 @@ class CompilerIDE(QMainWindow):
 
     def run_syntactic_phase(self):
         try:
-            ast_root = syntactic.get_ast()
-            fill_tree_widget(self.syntax_analysis_tab, ast_root, self.syntax_errors_tab)
+            # Asegurarse de que el archivo de tokens existe
+            if not os.path.exists("tokens.txt"):
+                QMessageBox.warning(self, "Advertencia", 
+                                  "No se encontró el archivo de tokens. Por favor, ejecute primero el análisis léxico.")
+                return
+
+            # Ejecutar el análisis sintáctico
+            ast_root, errors = syntactic.get_ast()
+            
+            # Verificar si hay errores fatales
+            if errors and any("Fatal" in error for error in errors):
+                QMessageBox.critical(self, "Error Sintáctico", 
+                                   "Se encontraron errores fatales durante el análisis sintáctico.")
+            
+            # Mostrar el árbol y los errores
+            fill_tree_widget(self.syntax_analysis_tab, ast_root, self.syntax_errors_tab, errors)
+            
         except Exception as e:
-            QMessageBox.critical(self, "Error en análisis sintáctico", str(e))
-
-
+            QMessageBox.critical(self, "Error en análisis sintáctico", 
+                               f"Error inesperado durante el análisis sintáctico:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def run_semantic_phase(self):
         try:
-            source_code = self.code_editor.toPlainText()
-            resultado = semantic.analyze(source_code)
-            self.semantic_analysis_tab.setPlainText(resultado)
-        except Exception:
             self.semantic_analysis_tab.setPlainText("Fase semántica aún no implementada.")
+        except Exception as e:
+            self.semantic_analysis_tab.setPlainText(f"Error durante el análisis semántico:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def run_intermediate_code_phase(self):
         try:
-            source_code = self.code_editor.toPlainText()
-            resultado = intermediate_code.generate(source_code)
-            self.intermediate_code_tab.setPlainText(resultado)
-        except Exception:
             self.intermediate_code_tab.setPlainText("Generación de código intermedio aún no implementada.")
-
+        except Exception as e:
+            self.intermediate_code_tab.setPlainText(f"Error durante la generación de código:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def check_for_changes(self):
         """Verifica si hay cambios no guardados en el editor."""
@@ -481,35 +520,54 @@ class CompilerIDE(QMainWindow):
         else:
             self.setWindowTitle("IDE para Compilador")
 
-def fill_tree_widget(widget: QTreeWidget, ast_root: ASTNode, error_output_widget: QPlainTextEdit):
+    def close_window(self):
+        """Cierra la ventana principal."""
+        self.close()
+        return None
+
+def fill_tree_widget(widget: QTreeWidget, ast_root: ASTNode, error_output_widget: QPlainTextEdit, parser_errors: list):
     widget.clear()
     error_output_widget.clear()
     errores = []
 
     def add_node_recursively(parent_widget_item, ast_node):
-        # Si es un nodo de error, lo almacenamos y no lo añadimos al árbol visual
-        if "Error" in ast_node.name:
+        if ast_node is None:
+            return
+        if isinstance(ast_node.name, str) and "Error" in ast_node.name:
             errores.append(ast_node.name)
             return
-
+        
+        # Crear el item con el nombre del nodo
         item = QTreeWidgetItem([ast_node.name])
         parent_widget_item.addChild(item)
+        
+        # Procesar recursivamente los hijos
+        if hasattr(ast_node, 'children'):
+            for child in ast_node.children:
+                if child is not None:
+                    add_node_recursively(item, child)
 
-        for child in ast_node.children:
-            add_node_recursively(item, child)
+    # Verificar si el árbol está vacío
+    if ast_root is None:
+        error_output_widget.setPlainText("Error: No se pudo generar el árbol sintáctico")
+        return
 
-    # Raíz del árbol
+    # Crear el nodo raíz
     root_item = QTreeWidgetItem([ast_root.name])
     widget.addTopLevelItem(root_item)
+    
+    # Procesar los hijos del nodo raíz
+    if hasattr(ast_root, 'children'):
+        for child in ast_root.children:
+            if child is not None:
+                add_node_recursively(root_item, child)
+    
+    widget.expandAll()
 
-    for child in ast_root.children:
-        add_node_recursively(root_item, child)
-
-    widget.expandAll()  # Puedes quitar esto si quieres que se muestre colapsado por defecto
-
-    # Mostrar errores recolectados
-    if errores:
-        error_output_widget.setPlainText("\n".join(errores))
+    # Combinar y mostrar errores
+    all_errors = errores + (parser_errors if parser_errors else [])
+    if all_errors:
+        error_output_widget.setPlainText("\n".join(all_errors))
     else:
         error_output_widget.setPlainText("Sin errores sintácticos.")
 
