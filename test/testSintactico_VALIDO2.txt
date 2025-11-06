@@ -1,16 +1,12 @@
-main() {
-    int a;
+main {
+    int a, b, c;
     a = 10;
-
-    if (a > 5) {
-        a = a - 1;
-    } else {
-        a = a + 1;
-    }
-
-    while (a > 0) {
-        a = a - 1;
-    }
-
-    return a;
+    b = a;
+    b++;
+    c = b + a;
+    if a < c then
+        cout << c;
+    else
+        cin >> a;
+    end
 }

@@ -49,7 +49,7 @@ class Parser:
         if tipo and token.tipo != tipo:
             return False
         if lexema and (isinstance(lexema, str) and token.lexema != lexema or 
-                      isinstance(lexema, (list, tuple)) and token.lexema not in lexema):
+                        isinstance(lexema, (list, tuple)) and token.lexema not in lexema):
             return False
         return True
 

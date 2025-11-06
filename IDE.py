@@ -245,14 +245,14 @@ class CompilerIDE(QMainWindow):
         self.lexical_analysis_tab = QPlainTextEdit()
         self.syntax_analysis_tab = QTreeWidget()
         self.syntax_analysis_tab.setHeaderHidden(True)
-        self.semantic_analysis_tab = QPlainTextEdit()
+        self.semantic_analysis_tab = QTreeWidget()
+        self.semantic_analysis_tab.setHeaderHidden(True)
         self.intermediate_code_tab = QPlainTextEdit()
         self.execution_tab = QPlainTextEdit()
         self.hash_table_tab = QPlainTextEdit()
 
         # Configurar los paneles de análisis como de solo lectura
         self.lexical_analysis_tab.setReadOnly(True)
-        self.semantic_analysis_tab.setReadOnly(True)
         self.intermediate_code_tab.setReadOnly(True)
         self.execution_tab.setReadOnly(True)
         self.hash_table_tab.setReadOnly(True)
@@ -455,10 +455,15 @@ class CompilerIDE(QMainWindow):
 
     def run_syntactic_phase(self):
         try:
-            # Asegurarse de que el archivo de tokens existe
+            # Ejecutar primero el análisis léxico (si es necesario)
+            if not os.path.exists("tokens.txt") or not self.current_file_path:
+                # Si no hay tokens o no hay archivo abierto, ejecutar análisis léxico
+                self.run_lexical_phase()
+            
+            # Asegurarse de que el archivo de tokens existe después del análisis léxico
             if not os.path.exists("tokens.txt"):
                 QMessageBox.warning(self, "Advertencia", 
-                                  "No se encontró el archivo de tokens. Por favor, ejecute primero el análisis léxico.")
+                                  "No se pudo generar el archivo de tokens. Por favor, verifique el archivo de código fuente.")
                 return
 
             # Ejecutar el análisis sintáctico
@@ -480,7 +485,55 @@ class CompilerIDE(QMainWindow):
 
     def run_semantic_phase(self):
         try:
-            self.semantic_analysis_tab.setPlainText("Fase semántica aún no implementada.")
+            # Ejecutar primero el análisis sintáctico (que incluye el léxico)
+            if not os.path.exists("tokens.txt") or not self.current_file_path:
+                # Si no hay tokens o no hay archivo abierto, ejecutar análisis sintáctico
+                self.run_syntactic_phase()
+            else:
+                # Si hay tokens pero no se ha ejecutado el sintáctico, ejecutarlo
+                # Verificar si hay AST válido ejecutando el sintáctico
+                try:
+                    ast_root, errors = syntactic.get_ast()
+                    # Mostrar el árbol sintáctico también
+                    fill_tree_widget(self.syntax_analysis_tab, ast_root, self.syntax_errors_tab, errors)
+                except:
+                    # Si falla, ejecutar desde el léxico
+                    self.run_syntactic_phase()
+            
+            # Asegurarse de que el archivo de tokens existe después del análisis sintáctico
+            if not os.path.exists("tokens.txt"):
+                QMessageBox.warning(self, "Advertencia", 
+                                  "No se pudo generar el archivo de tokens. Por favor, verifique el archivo de código fuente.")
+                return
+            
+            # Ejecutar el análisis semántico
+            ast_anotado, tabla_simbolos, errores, annotations, ast_root = semantic.get_semantic_results()
+            
+            # Mostrar árbol semántico anotado en la pestaña de análisis semántico
+            if ast_root and annotations:
+                fill_semantic_tree_widget(self.semantic_analysis_tab, ast_root, annotations)
+            
+            # Mostrar tabla de símbolos en la pestaña "Tabla HASH" (solo la tabla)
+            tabla_texto = "nombre\ttipo\tambito\tdireccion\n"
+            for entry in tabla_simbolos:
+                tabla_texto += f"{entry['nombre']}\t{entry['tipo']}\t{entry['ambito']}\t{entry['direccion']}\n"
+            self.hash_table_tab.setPlainText(tabla_texto)
+            
+            # Mostrar errores en el panel de errores semánticos
+            if errores:
+                errores_texto = "\n".join([
+                    f"{error['tipo']}: {error['descripcion']} ({error['linea']}:{error['columna']})"
+                    for error in errores
+                ])
+                self.semantic_errors_tab.setPlainText(errores_texto)
+            else:
+                self.semantic_errors_tab.setPlainText("Sin errores semánticos.")
+            
+            # Verificar si hay errores fatales
+            if errores and any(error.get('fatal', False) for error in errores):
+                QMessageBox.critical(self, "Error Semántico", 
+                                   "Se encontraron errores fatales durante el análisis semántico.")
+            
         except Exception as e:
             self.semantic_analysis_tab.setPlainText(f"Error durante el análisis semántico:\n{str(e)}")
             import traceback
@@ -570,6 +623,95 @@ def fill_tree_widget(widget: QTreeWidget, ast_root: ASTNode, error_output_widget
         error_output_widget.setPlainText("\n".join(all_errors))
     else:
         error_output_widget.setPlainText("Sin errores sintácticos.")
+
+
+def fill_semantic_tree_widget(widget: QTreeWidget, ast_root: ASTNode, annotations: dict):
+    """
+    Llena un QTreeWidget con el AST anotado semánticamente, mostrando tipos y valores.
+    """
+    widget.clear()
+    
+    def get_node_annotation(node):
+        """Obtiene las anotaciones de un nodo."""
+        node_id = id(node)
+        return annotations.get(node_id, {})
+    
+    def format_node_name(node):
+        """Formatea el nombre del nodo con anotaciones semánticas."""
+        node_name = node.name
+        node_annotations = get_node_annotation(node)
+        
+        # Extraer lexema si es un token
+        parsed = None
+        if " (" in node_name and ")" in node_name:
+            parts = node_name.rsplit(" (", 1)
+            if len(parts) == 2:
+                lexema = parts[0]
+                loc = parts[1].rstrip(")")
+                node_name = f"{lexema} ({loc})"
+        
+        # Agregar anotaciones
+        tipo = node_annotations.get('type')
+        valor = node_annotations.get('value')
+        
+        # Construir texto del nodo
+        texto = node_name
+        
+        # Agregar tipo si existe
+        if tipo:
+            texto += f" : {tipo}"
+        elif 'type' in node_annotations and node_annotations['type'] is None:
+            # Hay un error (tipo None indica error)
+            texto += " : ERROR"
+        
+        # Agregar valor si existe
+        if valor is not None:
+            texto += f" = {valor}"
+        
+        return texto
+    
+    def add_node_recursively(parent_widget_item, ast_node):
+        if ast_node is None:
+            return
+        
+        # Formatear nombre con anotaciones
+        node_text = format_node_name(ast_node)
+        item = QTreeWidgetItem([node_text])
+        parent_widget_item.addChild(item)
+        
+        # Procesar recursivamente los hijos
+        if hasattr(ast_node, 'children'):
+            for child in ast_node.children:
+                if child is not None:
+                    add_node_recursively(item, child)
+    
+    # Verificar si el árbol está vacío
+    if ast_root is None:
+        return
+    
+    # Crear el nodo raíz
+    root_text = format_node_name(ast_root)
+    root_item = QTreeWidgetItem([root_text])
+    widget.addTopLevelItem(root_item)
+    
+    # Procesar los hijos del nodo raíz
+    if hasattr(ast_root, 'children'):
+        for child in ast_root.children:
+            if child is not None:
+                # Saltar tokens de formato (main, {, })
+                parsed = None
+                if " (" in child.name and ")" in child.name:
+                    parts = child.name.rsplit(" (", 1)
+                    if len(parts) == 2:
+                        lexema = parts[0]
+                        if lexema in ('main', '{', '}'):
+                            continue
+                elif child.name in ('main', '{', '}'):
+                    continue
+                
+                add_node_recursively(root_item, child)
+    
+    widget.expandAll()
 
 
 if __name__ == "__main__":
