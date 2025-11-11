@@ -159,17 +159,59 @@ class SemanticAnalyzer:
                 # Es un literal
                 tipo = self.infer_type_from_literal(lexema)
                 if tipo:
-                    self.annotate_node(node, tipo=tipo, valor=lexema)
+                    # Convertir el lexema a su valor numérico o booleano correspondiente
+                    valor_literal = None
+                    if tipo == 'int':
+                        try:
+                            valor_literal = int(lexema)
+                        except ValueError:
+                            valor_literal = None
+                    elif tipo == 'float':
+                        try:
+                            valor_literal = float(lexema)
+                        except ValueError:
+                            valor_literal = None
+                    elif tipo == 'bool':
+                        valor_literal = True if lexema == 'true' else False
+                    
+                    self.annotate_node(node, tipo=tipo, valor=valor_literal)
                     return tipo
                 
                 # Es un identificador
                 entry, error_msg = self.symbol_table.lookup(lexema, linea, columna)
                 if entry:
-                    self.annotate_node(node, tipo=entry.tipo)
+                    # Obtener valor de la variable si está disponible
+                    valor_variable = entry.get_valor()
+                    # Si la variable no tiene valor asignado, no es un error fatal,
+                    # pero puede causar problemas en operaciones aritméticas
+                    # (se reportará cuando se intente usar en una operación)
+                    self.annotate_node(node, tipo=entry.tipo, valor=valor_variable)
                     return entry.tipo
                 else:
                     self.report_error("VARIABLE_NO_DECLARADA", error_msg, linea, columna, fatal=False)
                     return None
+        else:
+            # El nodo no tiene formato de token. Verificar si es un literal sin formato
+            # (por ejemplo, "1" creado directamente como ASTNode("1"))
+            tipo_literal = self.infer_type_from_literal(node_name)
+            if tipo_literal:
+                # Es un literal sin formato de token (ej: "1", "2.5", "true")
+                valor_literal = None
+                if tipo_literal == 'int':
+                    try:
+                        valor_literal = int(node_name)
+                    except ValueError:
+                        valor_literal = None
+                elif tipo_literal == 'float':
+                    try:
+                        valor_literal = float(node_name)
+                    except ValueError:
+                        valor_literal = None
+                elif tipo_literal == 'bool':
+                    valor_literal = True if node_name == 'true' else False
+                
+                self.annotate_node(node, tipo=tipo_literal, valor=valor_literal)
+                return tipo_literal
         
         # Si es un operador (verificar node_name directamente o después de actualizar desde token)
         node_name = node.name  # Actualizar por si se modificó arriba
@@ -254,11 +296,53 @@ class SemanticAnalyzer:
         
         # Calcular valor si ambos operandos tienen valores
         result_value = None
+        
+        # Verificar si algún operando no tiene valor (variable sin inicializar)
+        # NOTA: Esto es un error de ejecución, no semántico, así que no reportamos error.
+        # Solo anotamos el nodo sin valor y continuamos el análisis.
+        if left_value is None or right_value is None:
+            # No podemos calcular el resultado, pero el tipo puede inferirse
+            # Anotar el nodo con el tipo pero sin valor (no es error semántico)
+            self.annotate_node(node, tipo=result_type, valor=None)
+            return result_type
+        
+        # Ambos operandos tienen valores, calcular el resultado
         if left_value is not None and right_value is not None:
             try:
-                left_num = float(left_value) if result_type == 'float' or '.' in str(left_value) else int(left_value)
-                right_num = float(right_value) if result_type == 'float' or '.' in str(right_value) else int(right_value)
+                # Convertir valores a números, manejando tanto números como strings
+                # Para left_value
+                if isinstance(left_value, (int, float)):
+                    left_num = left_value
+                elif isinstance(left_value, str):
+                    # Es un string, intentar convertir a número
+                    try:
+                        if '.' in left_value or 'e' in left_value.lower() or 'E' in left_value:
+                            left_num = float(left_value)
+                        else:
+                            left_num = int(left_value)
+                    except ValueError:
+                        left_num = float(left_value) if result_type == 'float' else int(left_value)
+                else:
+                    # Otro tipo, convertir directamente
+                    left_num = float(left_value) if result_type == 'float' else int(left_value)
                 
+                # Para right_value
+                if isinstance(right_value, (int, float)):
+                    right_num = right_value
+                elif isinstance(right_value, str):
+                    # Es un string, intentar convertir a número
+                    try:
+                        if '.' in right_value or 'e' in right_value.lower() or 'E' in right_value:
+                            right_num = float(right_value)
+                        else:
+                            right_num = int(right_value)
+                    except ValueError:
+                        right_num = float(right_value) if result_type == 'float' else int(right_value)
+                else:
+                    # Otro tipo, convertir directamente
+                    right_num = float(right_value) if result_type == 'float' else int(right_value)
+                
+                # Realizar la operación
                 if node.name == '+':
                     result_value = left_num + right_num
                 elif node.name == '-':
@@ -273,13 +357,13 @@ class SemanticAnalyzer:
                 elif node.name == '%':
                     result_value = left_num % right_num
                 
-                # Formatear resultado
+                # Formatear resultado según el tipo
                 if result_value is not None:
                     if result_type == 'int':
                         result_value = int(result_value)
                     else:
                         result_value = float(result_value)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, AttributeError):
                 result_value = None
         
         self.annotate_node(node, tipo=result_type, valor=result_value)
@@ -449,13 +533,22 @@ class SemanticAnalyzer:
         
         id_lexema, id_linea, id_columna = parsed_id
         
-        # Verificar que la variable esté declarada (registrar aparición)
+        # Verificar que la variable esté declarada
         entry, error_msg = self.symbol_table.lookup(id_lexema, id_linea, id_columna)
         if not entry:
             self.report_error("VARIABLE_NO_DECLARADA", error_msg, id_linea, id_columna, fatal=False)
             return None
         
-        # Analizar tipo de la expresión
+        # Obtener el valor actual de la variable ANTES de analizar la expresión
+        # Esto es importante para operaciones como a = a + 1, donde el 'a' de la derecha
+        # debe usar el valor ANTES de la asignación
+        valor_actual_variable = entry.get_valor()
+        
+        # Anotar el identificador del lado izquierdo con su tipo y valor actual
+        # (antes de analizar la expresión, para que se muestre en el árbol)
+        self.annotate_node(id_node, tipo=entry.tipo, valor=valor_actual_variable)
+        
+        # Analizar tipo de la expresión (esto puede usar el valor actual de la variable)
         expr_type = self.analyze_expression(expr_node)
         
         # Obtener valor de la expresión si está disponible
@@ -473,8 +566,129 @@ class SemanticAnalyzer:
             self.annotate_node(node, tipo=None)
             return None
         
-        # El valor de la asignación es el valor de la expresión
+        # Actualizar el valor de la variable en la tabla de símbolos SOLO DESPUÉS de calcular la expresión
+        # Esto asegura que cuando analizamos 'a' en 'a + 1', obtenemos el valor anterior
+        if expr_value is not None:
+            entry.set_valor(expr_value)
+        
+        # El valor de la asignación es el valor de la expresión (el nuevo valor de la variable)
+        # Este es el valor POST-operación que se asigna a la variable
         self.annotate_node(node, tipo=entry.tipo, valor=expr_value)
+        
+        # Retornar el tipo de la variable (que es el tipo de la asignación)
+        return entry.tipo
+    
+    def analyze_compound_assignment(self, node):
+        """Analiza asignación compuesta: +=, -=, *=, /=, %="""
+        if len(node.children) < 2:
+            return None
+        
+        # El nombre del nodo contiene el operador (ej: "+= (5:10)")
+        parsed_op = self.parse_token_node(node.name)
+        if not parsed_op:
+            return None
+        
+        op_lexema, op_linea, op_columna = parsed_op
+        if op_lexema not in ('+=', '-=', '*=', '/=', '%='):
+            return None
+        
+        # Hijo 0: identificador destino
+        # Hijo 1: expresión fuente
+        id_node = node.children[0]
+        expr_node = node.children[1]
+        
+        parsed_id = self.parse_token_node(id_node.name)
+        if not parsed_id:
+            return None
+        
+        id_lexema, id_linea, id_columna = parsed_id
+        
+        # Verificar que la variable esté declarada (registrar primera aparición)
+        entry, error_msg = self.symbol_table.lookup(id_lexema, id_linea, id_columna)
+        if not entry:
+            self.report_error("VARIABLE_NO_DECLARADA", error_msg, id_linea, id_columna, fatal=False)
+            return None
+        
+        # Obtener el valor actual de la variable ANTES de analizar la expresión
+        # (porque la expresión puede usar la variable y necesitamos su valor anterior)
+        valor_actual = entry.get_valor()
+        
+        # Analizar tipo de la expresión (esto puede registrar más apariciones de la variable si se usa en la expresión)
+        expr_type = self.analyze_expression(expr_node)
+        
+        # Para asignaciones compuestas, la variable se usa dos veces: una vez como destino y otra en la expresión implícita
+        # Por ejemplo: a += b es semánticamente a = a + b, donde 'a' aparece dos veces
+        # Ya registramos una aparición arriba (la del identificador), ahora registramos otra en la misma línea
+        if id_linea:
+            # Verificar cuántas veces aparece esta línea
+            lineas_en_esta_linea = [l for l, c in entry.ubicaciones if l == id_linea]
+            # Si solo aparece una vez, agregar otra aparición (la segunda 'a' en 'a = a + b')
+            if len(lineas_en_esta_linea) == 1:
+                entry.agregar_ubicacion(id_linea, -1)  # Usar columna -1 para la segunda aparición
+        
+        # Obtener valor de la expresión si está disponible
+        expr_annotations = self.get_node_annotation(expr_node)
+        expr_value = expr_annotations.get('value')
+        
+        if not expr_type:
+            self.annotate_node(node, tipo=None)
+            return None
+        
+        # Verificar compatibilidad de tipos para la operación
+        # La expresión debe ser compatible con el tipo de la variable
+        es_compatible, mensaje = self.check_type_compatibility(entry.tipo, expr_type, id_linea, id_columna)
+        if not es_compatible:
+            self.report_error("TIPO_INCOMPATIBLE", 
+                            f"Incompatibilidad de tipos en asignación compuesta '{op_lexema}': {mensaje}", 
+                            id_linea, id_columna)
+            self.annotate_node(node, tipo=None)
+            return None
+        
+        # Calcular el nuevo valor si ambos valores están disponibles
+        nuevo_valor = None
+        if valor_actual is not None and expr_value is not None:
+            try:
+                # Convertir valores a números
+                if entry.tipo == 'float' or expr_type == 'float':
+                    val_actual = float(valor_actual)
+                    val_expr = float(expr_value)
+                    resultado_float = True
+                else:
+                    val_actual = int(valor_actual)
+                    val_expr = int(expr_value)
+                    resultado_float = False
+                
+                # Realizar la operación
+                if op_lexema == '+=':
+                    nuevo_valor = val_actual + val_expr
+                elif op_lexema == '-=':
+                    nuevo_valor = val_actual - val_expr
+                elif op_lexema == '*=':
+                    nuevo_valor = val_actual * val_expr
+                elif op_lexema == '/=':
+                    if val_expr == 0:
+                        nuevo_valor = None  # División por cero
+                    else:
+                        nuevo_valor = val_actual / val_expr
+                        resultado_float = True  # La división siempre produce float
+                elif op_lexema == '%=':
+                    nuevo_valor = val_actual % val_expr
+                
+                # Formatear resultado según el tipo
+                if nuevo_valor is not None:
+                    if resultado_float or entry.tipo == 'float':
+                        nuevo_valor = float(nuevo_valor)
+                    else:
+                        nuevo_valor = int(nuevo_valor)
+            except (ValueError, TypeError):
+                nuevo_valor = None
+        
+        # Actualizar el valor de la variable en la tabla de símbolos
+        if nuevo_valor is not None:
+            entry.set_valor(nuevo_valor)
+        
+        # Anotar el nodo con el tipo y valor
+        self.annotate_node(node, tipo=entry.tipo, valor=nuevo_valor)
         return entry.tipo
     
     def analyze_declaracion(self, node):
@@ -517,10 +731,24 @@ class SemanticAnalyzer:
                                 expr_node = child.children[1]
                                 expr_type = self.analyze_expression(expr_node)
                                 if expr_type:
+                                    # Obtener valor de la expresión
+                                    expr_annotations = self.get_node_annotation(expr_node)
+                                    expr_value = expr_annotations.get('value')
                                     es_compatible, mensaje = self.check_type_compatibility(
                                         tipo_lexema, expr_type, id_linea, id_columna)
                                     if not es_compatible:
                                         self.report_error("TIPO_INCOMPATIBLE", mensaje, id_linea, id_columna)
+                                        # Marcar el nodo de asignación con ERROR
+                                        self.annotate_node(child, tipo=None)
+                                    else:
+                                        # Actualizar valor de la variable solo si no hay error
+                                        if expr_value is not None:
+                                            entry.set_valor(expr_value)
+                                        # Anotar el nodo de asignación con el tipo correcto
+                                        self.annotate_node(child, tipo=tipo_lexema, valor=expr_value)
+                                else:
+                                    # Error en la expresión, marcar asignación con ERROR
+                                    self.annotate_node(child, tipo=None)
             else:
                 # Es un identificador sin asignación
                 parsed_id = self.parse_token_node(child.name)
@@ -542,26 +770,126 @@ class SemanticAnalyzer:
             self.analyze_declaracion(node)
             return
         
-        # Asignación
+        # Asignación simple (=)
         parsed = self.parse_token_node(node_name)
         if parsed and parsed[0] == '=':
             tipo = self.analyze_assignment(node)
             # El tipo y valor ya están anotados en analyze_assignment
             return
         
+        # Operadores de asignación compuestos (+=, -=, *=, /=, %=)
+        if parsed and parsed[0] in ('+=', '-=', '*=', '/=', '%='):
+            tipo = self.analyze_compound_assignment(node)
+            # El tipo y valor ya están anotados en analyze_compound_assignment
+            return
+        
         # Incremento/Decremento (ya expandidos por el parser)
         if "Expansión de" in node_name:
-            # El parser ya expandió ++/-- como asignación
+            # El parser ya expandió ++/-- como asignación (a = a + 1)
+            # Obtener la línea y el identificador ANTES de analizar
+            parsed = None
+            id_lexema = None
+            linea_op = None
+            id_columna = None
+            
+            # Intentar obtener información del nodo de expansión o del primer hijo
+            if node.children and node.children[0].children:
+                id_node = node.children[0].children[0]  # El identificador de la izquierda en la asignación
+                parsed = self.parse_token_node(id_node.name)
+                if parsed:
+                    id_lexema, linea_op, id_columna = parsed
+            
+            # Contar apariciones ANTES del análisis de esta operación ++/--
+            apariciones_antes_operacion = 0
+            if id_lexema and linea_op:
+                entry, _ = self.symbol_table.lookup(id_lexema)
+                if entry:
+                    apariciones_antes_operacion = len([l for l, c in entry.ubicaciones if l == linea_op])
+            
+            # Analizar la asignación expandida directamente llamando a analyze_assignment
+            # en lugar de analyze_statement para tener mejor control
             if node.children:
-                self.analyze_statement(node.children[0])
-                # Propagar tipo y valor de la asignación al nodo de expansión
-                if node.children[0].children:
-                    assign_node = node.children[0]
+                assign_node = node.children[0]  # El nodo "="
+                
+                # Analizar la asignación directamente
+                if assign_node and len(assign_node.children) >= 2:
+                    # Llamar a analyze_assignment directamente para asegurar que se analice correctamente
+                    self.analyze_assignment(assign_node)
+                    
+                    # Después del análisis, verificar cuántas apariciones NUEVAS se agregaron
+                    if id_lexema and linea_op:
+                        entry, _ = self.symbol_table.lookup(id_lexema)
+                        if entry:
+                            apariciones_despues_operacion = len([l for l, c in entry.ubicaciones if l == linea_op])
+                            apariciones_agregadas = apariciones_despues_operacion - apariciones_antes_operacion
+                            
+                            # Para ++/--, necesitamos exactamente 2 apariciones NUEVAS en esta línea
+                            # Si se agregaron menos de 2, agregar las que faltan
+                            if apariciones_agregadas < 2:
+                                faltantes = 2 - apariciones_agregadas
+                                # Usar un contador único para las columnas de las apariciones adicionales
+                                # Empezar desde -1000 para evitar conflictos con columnas reales
+                                columna_base = -1000
+                                for i in range(faltantes):
+                                    entry.agregar_ubicacion(linea_op, columna_base - i)
+                            # Si se agregaron más de 2 (no debería pasar), eliminar las extras
+                            elif apariciones_agregadas > 2:
+                                # Eliminar las apariciones extra que se agregaron en esta operación
+                                ubicaciones_linea = [(l, c) for l, c in entry.ubicaciones if l == linea_op]
+                                # Mantener solo las primeras N apariciones (donde N = apariciones_antes + 2)
+                                ubicaciones_a_mantener = apariciones_antes_operacion + 2
+                                if len(ubicaciones_linea) > ubicaciones_a_mantener:
+                                    ubicaciones_a_eliminar = ubicaciones_linea[ubicaciones_a_mantener:]
+                                    for ubicacion in ubicaciones_a_eliminar:
+                                        if ubicacion in entry.ubicaciones:
+                                            entry.ubicaciones.remove(ubicacion)
+                    
+                    # Obtener las anotaciones del nodo de asignación DESPUÉS de analizarlo
+                    # analyze_assignment ya analizó completamente todos los hijos (incluyendo la expresión a + 1)
+                    # y actualizó el valor en la tabla de símbolos
                     assign_annotations = self.get_node_annotation(assign_node)
                     assign_tipo = assign_annotations.get('type')
                     assign_valor = assign_annotations.get('value')
+                    
+                    # Si el nodo de asignación tiene un valor, ese ES el valor POST-operación
+                    # porque analyze_assignment ya actualizó la tabla de símbolos y anotó el nodo con el nuevo valor
+                    if assign_valor is None:
+                        # Si no hay valor en las anotaciones, obtenerlo directamente de la expresión
+                        if len(assign_node.children) >= 2:
+                            expr_node = assign_node.children[1]
+                            expr_annotations = self.get_node_annotation(expr_node)
+                            assign_valor = expr_annotations.get('value')
+                    
+                    # Si aún no tenemos valor, obtenerlo de la tabla de símbolos
+                    # (que debería tener el valor POST-operación después de analyze_assignment)
+                    if assign_valor is None and id_lexema:
+                        entry, _ = self.symbol_table.lookup(id_lexema)
+                        if entry:
+                            assign_valor = entry.get_valor()
+                            if assign_tipo is None:
+                                assign_tipo = entry.tipo
+                    
+                    # Si no tenemos tipo, obtenerlo de la entrada en la tabla de símbolos
+                    if assign_tipo is None and id_lexema:
+                        entry, _ = self.symbol_table.lookup(id_lexema)
+                        if entry:
+                            assign_tipo = entry.tipo
+                    
+                    # Propagar tipo y valor al nodo de expansión
+                    # El valor debe ser el valor POST-operación (después del incremento/decremento)
+                    # Este valor ya fue calculado por analyze_assignment y está en las anotaciones del nodo =
                     if assign_tipo:
+                        # Anotar el nodo de expansión con el tipo y valor POST-operación
                         self.annotate_node(node, tipo=assign_tipo, valor=assign_valor)
+                    else:
+                        # Si hay error en la asignación, propagarlo
+                        self.annotate_node(node, tipo=None)
+                else:
+                    # Si no hay hijos válidos, marcar como error
+                    self.annotate_node(node, tipo=None)
+            else:
+                # Si no hay hijos, marcar como error
+                self.annotate_node(node, tipo=None)
             return
         
         # if
@@ -844,11 +1172,14 @@ class SemanticAnalyzer:
         # Construir diccionario de tabla de símbolos
         tabla_dict = []
         for entry in self.symbol_table.get_all_entries():
+            valor_actual = entry.get_valor()
+            valor_str = str(valor_actual) if valor_actual is not None else ""
             tabla_dict.append({
                 "nombre": entry.nombre,
                 "tipo": entry.tipo,
                 "ambito": entry.ambito,
-                "direccion": entry.get_ubicaciones_str()  # Usar ubicaciones en lugar de dirección numérica
+                "valor": valor_str,
+                "direccion": entry.get_ubicaciones_str()  # Ubicaciones (solo líneas)
             })
         
         # Construir lista de errores
@@ -946,9 +1277,10 @@ def _write_symbol_table_file(tabla_simbolos):
     """Escribe la tabla de símbolos a tabla_simbolos.txt"""
     try:
         with open("tabla_simbolos.txt", "w", encoding="utf-8") as f:
-            f.write("nombre\ttipo\tambito\tdireccion\n")
+            f.write("nombre\ttipo\tambito\tvalor\tdireccion\n")
             for entry in tabla_simbolos:
-                f.write(f"{entry['nombre']}\t{entry['tipo']}\t{entry['ambito']}\t{entry['direccion']}\n")
+                valor = entry.get('valor', '')
+                f.write(f"{entry['nombre']}\t{entry['tipo']}\t{entry['ambito']}\t{valor}\t{entry['direccion']}\n")
         print(f"Tabla de símbolos escrita: {len(tabla_simbolos)} entradas")
     except Exception as e:
         print(f"Error escribiendo tabla de símbolos: {e}")

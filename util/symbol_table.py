@@ -17,9 +17,29 @@ class SymbolEntry:
         if (linea, columna) not in self.ubicaciones:
             self.ubicaciones.append((linea, columna))
     
+    def agregar_linea(self, linea):
+        """Agrega una línea donde aparece la variable (para duplicar apariciones como en ++/--)."""
+        # Agregar la línea dos veces para representar las dos apariciones en 'a = a + 1'
+        # Usamos columna -1 para indicar que son apariciones duplicadas en la misma línea
+        self.ubicaciones.append((linea, -1))
+        self.ubicaciones.append((linea, -1))
+    
     def get_ubicaciones_str(self):
-        """Retorna las ubicaciones como string: (5:1),(7:10)"""
-        return ",".join([f"({l}:{c})" for l, c in sorted(self.ubicaciones)])
+        """Retorna las ubicaciones como string: (5),(7) - solo líneas, sin columnas"""
+        # Extraer todas las líneas (manteniendo duplicados para contar apariciones)
+        lineas = [l for l, c in self.ubicaciones]
+        # Ordenar y mantener todas las apariciones
+        lineas_ordenadas = sorted(lineas)
+        return ",".join([f"({l})" for l in lineas_ordenadas])
+    
+    def get_valor(self):
+        """Retorna el valor actual de la variable si está disponible."""
+        # Por ahora retornamos None, se puede extender para mantener valores
+        return getattr(self, 'valor_actual', None)
+    
+    def set_valor(self, valor):
+        """Establece el valor actual de la variable."""
+        self.valor_actual = valor
     
     def __repr__(self):
         return f"SymbolEntry({self.nombre}, {self.tipo}, {self.ambito}, {self.direccion})"

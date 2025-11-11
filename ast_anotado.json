@@ -78,13 +78,14 @@
         {
           "name": "x (5:5)",
           "children": [],
+          "type": "int",
           "loc": "5:5"
         },
         {
           "name": "32.32 (5:9)",
           "children": [],
           "type": "float",
-          "value": "32.32",
+          "value": 32.32,
           "loc": "5:9"
         }
       ],
@@ -96,18 +97,19 @@
         {
           "name": "x (6:5)",
           "children": [],
+          "type": "int",
           "loc": "6:5"
         },
         {
           "name": "23 (6:9)",
           "children": [],
           "type": "int",
-          "value": "23",
+          "value": 23,
           "loc": "6:9"
         }
       ],
       "type": "int",
-      "value": "23",
+      "value": 23,
       "loc": "6:7"
     },
     {
@@ -116,6 +118,7 @@
         {
           "name": "y (7:5)",
           "children": [],
+          "type": "int",
           "loc": "7:5"
         },
         {
@@ -128,14 +131,14 @@
                   "name": "2 (7:9)",
                   "children": [],
                   "type": "int",
-                  "value": "2",
+                  "value": 2,
                   "loc": "7:9"
                 },
                 {
                   "name": "3 (7:13)",
                   "children": [],
                   "type": "int",
-                  "value": "3",
+                  "value": 3,
                   "loc": "7:13"
                 }
               ],
@@ -146,7 +149,7 @@
               "name": "1 (7:17)",
               "children": [],
               "type": "int",
-              "value": "1",
+              "value": 1,
               "loc": "7:17"
             }
           ],
@@ -164,6 +167,7 @@
         {
           "name": "z (8:5)",
           "children": [],
+          "type": "int",
           "loc": "8:5"
         },
         {
@@ -173,20 +177,23 @@
               "name": "y (8:9)",
               "children": [],
               "type": "int",
+              "value": 4,
               "loc": "8:9"
             },
             {
               "name": "7 (8:13)",
               "children": [],
               "type": "int",
-              "value": "7",
+              "value": 7,
               "loc": "8:13"
             }
           ],
-          "type": "int"
+          "type": "int",
+          "value": 11
         }
       ],
       "type": "int",
+      "value": 11,
       "loc": "8:7"
     },
     {
@@ -195,6 +202,8 @@
         {
           "name": "y (9:5)",
           "children": [],
+          "type": "int",
+          "value": 4,
           "loc": "9:5"
         },
         {
@@ -204,20 +213,23 @@
               "name": "y (9:9)",
               "children": [],
               "type": "int",
+              "value": 4,
               "loc": "9:9"
             },
             {
               "name": "1 (9:13)",
               "children": [],
               "type": "int",
-              "value": "1",
+              "value": 1,
               "loc": "9:13"
             }
           ],
-          "type": "int"
+          "type": "int",
+          "value": 5
         }
       ],
       "type": "int",
+      "value": 5,
       "loc": "9:7"
     },
     {
@@ -226,6 +238,7 @@
         {
           "name": "a (10:5)",
           "children": [],
+          "type": "float",
           "loc": "10:5"
         },
         {
@@ -244,14 +257,14 @@
                           "name": "24.0 (10:7)",
                           "children": [],
                           "type": "float",
-                          "value": "24.0",
+                          "value": 24.0,
                           "loc": "10:7"
                         },
                         {
                           "name": "4 (10:12)",
                           "children": [],
                           "type": "int",
-                          "value": "4",
+                          "value": 4,
                           "loc": "10:12"
                         }
                       ],
@@ -268,14 +281,14 @@
                               "name": "1 (10:14)",
                               "children": [],
                               "type": "int",
-                              "value": "1",
+                              "value": 1,
                               "loc": "10:14"
                             },
                             {
                               "name": "3 (10:16)",
                               "children": [],
                               "type": "int",
-                              "value": "3",
+                              "value": 3,
                               "loc": "10:16"
                             }
                           ],
@@ -286,7 +299,7 @@
                           "name": "2 (10:18)",
                           "children": [],
                           "type": "int",
-                          "value": "2",
+                          "value": 2,
                           "loc": "10:18"
                         }
                       ],
@@ -301,7 +314,7 @@
                   "name": "34 (10:20)",
                   "children": [],
                   "type": "int",
-                  "value": "34",
+                  "value": 34,
                   "loc": "10:20"
                 }
               ],
@@ -312,7 +325,7 @@
               "name": "1 (10:23)",
               "children": [],
               "type": "int",
-              "value": "1",
+              "value": 1,
               "loc": "10:23"
             }
           ],
@@ -330,6 +343,8 @@
         {
           "name": "x (11:5)",
           "children": [],
+          "type": "int",
+          "value": 23,
           "loc": "11:5"
         },
         {
@@ -342,14 +357,14 @@
                   "name": "5 (11:8)",
                   "children": [],
                   "type": "int",
-                  "value": "5",
+                  "value": 5,
                   "loc": "11:8"
                 },
                 {
                   "name": "3 (11:10)",
                   "children": [],
                   "type": "int",
-                  "value": "3",
+                  "value": 3,
                   "loc": "11:10"
                 }
               ],
@@ -363,14 +378,14 @@
                   "name": "8 (11:14)",
                   "children": [],
                   "type": "int",
-                  "value": "8",
+                  "value": 8,
                   "loc": "11:14"
                 },
                 {
                   "name": "2 (11:16)",
                   "children": [],
                   "type": "int",
-                  "value": "2",
+                  "value": 2,
                   "loc": "11:16"
                 }
               ],
@@ -392,6 +407,8 @@
         {
           "name": "y (12:5)",
           "children": [],
+          "type": "int",
+          "value": 5,
           "loc": "12:5"
         },
         {
@@ -407,14 +424,14 @@
                       "name": "5 (12:7)",
                       "children": [],
                       "type": "int",
-                      "value": "5",
+                      "value": 5,
                       "loc": "12:7"
                     },
                     {
                       "name": "3 (12:9)",
                       "children": [],
                       "type": "int",
-                      "value": "3",
+                      "value": 3,
                       "loc": "12:9"
                     }
                   ],
@@ -431,14 +448,14 @@
                           "name": "2 (12:11)",
                           "children": [],
                           "type": "int",
-                          "value": "2",
+                          "value": 2,
                           "loc": "12:11"
                         },
                         {
                           "name": "4 (12:13)",
                           "children": [],
                           "type": "int",
-                          "value": "4",
+                          "value": 4,
                           "loc": "12:13"
                         }
                       ],
@@ -449,7 +466,7 @@
                       "name": "7 (12:15)",
                       "children": [],
                       "type": "int",
-                      "value": "7",
+                      "value": 7,
                       "loc": "12:15"
                     }
                   ],
@@ -464,7 +481,7 @@
               "name": "9 (12:17)",
               "children": [],
               "type": "int",
-              "value": "9",
+              "value": 9,
               "loc": "12:17"
             }
           ],
@@ -482,6 +499,8 @@
         {
           "name": "z (13:5)",
           "children": [],
+          "type": "int",
+          "value": 11,
           "loc": "13:5"
         },
         {
@@ -494,14 +513,14 @@
                   "name": "8 (13:9)",
                   "children": [],
                   "type": "int",
-                  "value": "8",
+                  "value": 8,
                   "loc": "13:9"
                 },
                 {
                   "name": "2 (13:13)",
                   "children": [],
                   "type": "int",
-                  "value": "2",
+                  "value": 2,
                   "loc": "13:13"
                 }
               ],
@@ -515,14 +534,14 @@
                   "name": "15 (13:17)",
                   "children": [],
                   "type": "int",
-                  "value": "15",
+                  "value": 15,
                   "loc": "13:17"
                 },
                 {
                   "name": "4 (13:22)",
                   "children": [],
                   "type": "int",
-                  "value": "4",
+                  "value": 4,
                   "loc": "13:22"
                 }
               ],
@@ -544,13 +563,15 @@
         {
           "name": "y (14:5)",
           "children": [],
+          "type": "int",
+          "value": -2,
           "loc": "14:5"
         },
         {
           "name": "14.54 (14:9)",
           "children": [],
           "type": "float",
-          "value": "14.54",
+          "value": 14.54,
           "loc": "14:9"
         }
       ],
@@ -569,14 +590,14 @@
                   "name": "2 (15:8)",
                   "children": [],
                   "type": "int",
-                  "value": "2",
+                  "value": 2,
                   "loc": "15:8"
                 },
                 {
                   "name": "3 (15:10)",
                   "children": [],
                   "type": "int",
-                  "value": "3",
+                  "value": 3,
                   "loc": "15:10"
                 }
               ],
@@ -596,6 +617,8 @@
                 {
                   "name": "y (16:9)",
                   "children": [],
+                  "type": "int",
+                  "value": -2,
                   "loc": "16:9"
                 },
                 {
@@ -605,17 +628,19 @@
                       "name": "a (16:13)",
                       "children": [],
                       "type": "float",
+                      "value": 61.0,
                       "loc": "16:13"
                     },
                     {
                       "name": "3 (16:17)",
                       "children": [],
                       "type": "int",
-                      "value": "3",
+                      "value": 3,
                       "loc": "16:17"
                     }
                   ],
-                  "type": "float"
+                  "type": "float",
+                  "value": 64.0
                 }
               ],
               "loc": "16:11"
@@ -641,14 +666,14 @@
                               "name": "4 (18:12)",
                               "children": [],
                               "type": "int",
-                              "value": "4",
+                              "value": 4,
                               "loc": "18:12"
                             },
                             {
                               "name": "2 (18:14)",
                               "children": [],
                               "type": "int",
-                              "value": "2",
+                              "value": 2,
                               "loc": "18:14"
                             }
                           ],
@@ -659,7 +684,7 @@
                           "name": "true (18:19)",
                           "children": [],
                           "type": "bool",
-                          "value": "true",
+                          "value": true,
                           "loc": "18:19"
                         }
                       ],
@@ -679,23 +704,24 @@
                         {
                           "name": "b (19:13)",
                           "children": [],
+                          "type": "float",
                           "loc": "19:13"
                         },
                         {
                           "name": "3.2 (19:17)",
                           "children": [],
                           "type": "float",
-                          "value": "3.2",
+                          "value": 3.2,
                           "loc": "19:17"
                         }
                       ],
                       "type": "float",
-                      "value": "3.2",
+                      "value": 3.2,
                       "loc": "19:15"
                     }
                   ],
                   "type": "float",
-                  "value": "3.2"
+                  "value": 3.2
                 },
                 {
                   "name": "else",
@@ -706,23 +732,25 @@
                         {
                           "name": "b (21:13)",
                           "children": [],
+                          "type": "float",
+                          "value": 3.2,
                           "loc": "21:13"
                         },
                         {
                           "name": "5.0 (21:17)",
                           "children": [],
                           "type": "float",
-                          "value": "5.0",
+                          "value": 5.0,
                           "loc": "21:17"
                         }
                       ],
                       "type": "float",
-                      "value": "5.0",
+                      "value": 5.0,
                       "loc": "21:15"
                     }
                   ],
                   "type": "float",
-                  "value": "5.0"
+                  "value": 5.0
                 }
               ],
               "type": "bool",
@@ -735,6 +763,8 @@
                 {
                   "name": "y (23:9)",
                   "children": [],
+                  "type": "int",
+                  "value": -2,
                   "loc": "23:9"
                 },
                 {
@@ -744,25 +774,28 @@
                       "name": "y (23:13)",
                       "children": [],
                       "type": "int",
+                      "value": -2,
                       "loc": "23:13"
                     },
                     {
                       "name": "1 (23:17)",
                       "children": [],
                       "type": "int",
-                      "value": "1",
+                      "value": 1,
                       "loc": "23:17"
                     }
                   ],
-                  "type": "int"
+                  "type": "int",
+                  "value": -1
                 }
               ],
               "type": "int",
+              "value": -1,
               "loc": "23:11"
             }
           ],
           "type": "int",
-          "value": "true"
+          "value": -1
         }
       ],
       "type": "bool",
@@ -778,6 +811,8 @@
             {
               "name": "a (25:5)",
               "children": [],
+              "type": "float",
+              "value": 61.0,
               "loc": "25:5"
             },
             {
@@ -786,17 +821,27 @@
                 {
                   "name": "a (25:5)",
                   "children": [],
+                  "type": "float",
+                  "value": 61.0,
                   "loc": "25:5"
                 },
                 {
                   "name": "1",
-                  "children": []
+                  "children": [],
+                  "type": "int",
+                  "value": 1
                 }
-              ]
+              ],
+              "type": "float",
+              "value": 62.0
             }
-          ]
+          ],
+          "type": "float",
+          "value": 62.0
         }
-      ]
+      ],
+      "type": "float",
+      "value": 62.0
     },
     {
       "name": "Expansión de --",
@@ -807,6 +852,7 @@
             {
               "name": "c (26:5)",
               "children": [],
+              "type": "float",
               "loc": "26:5"
             },
             {
@@ -815,17 +861,23 @@
                 {
                   "name": "c (26:5)",
                   "children": [],
+                  "type": "float",
                   "loc": "26:5"
                 },
                 {
                   "name": "1",
-                  "children": []
+                  "children": [],
+                  "type": "int",
+                  "value": 1
                 }
-              ]
+              ],
+              "type": "float"
             }
-          ]
+          ],
+          "type": "float"
         }
-      ]
+      ],
+      "type": "float"
     },
     {
       "name": "= (27:7)",
@@ -833,6 +885,8 @@
         {
           "name": "x (27:5)",
           "children": [],
+          "type": "int",
+          "value": 8,
           "loc": "27:5"
         },
         {
@@ -842,14 +896,14 @@
               "name": "3 (27:9)",
               "children": [],
               "type": "int",
-              "value": "3",
+              "value": 3,
               "loc": "27:9"
             },
             {
               "name": "4 (27:13)",
               "children": [],
               "type": "int",
-              "value": "4",
+              "value": 4,
               "loc": "27:13"
             }
           ],
@@ -873,6 +927,8 @@
                 {
                   "name": "y (29:9)",
                   "children": [],
+                  "type": "int",
+                  "value": -1,
                   "loc": "29:9"
                 },
                 {
@@ -888,40 +944,45 @@
                               "name": "y (29:14)",
                               "children": [],
                               "type": "int",
+                              "value": -1,
                               "loc": "29:14"
                             },
                             {
                               "name": "1 (29:18)",
                               "children": [],
                               "type": "int",
-                              "value": "1",
+                              "value": 1,
                               "loc": "29:18"
                             }
                           ],
-                          "type": "int"
+                          "type": "int",
+                          "value": 0
                         },
                         {
                           "name": "2 (29:23)",
                           "children": [],
                           "type": "int",
-                          "value": "2",
+                          "value": 2,
                           "loc": "29:23"
                         }
                       ],
-                      "type": "int"
+                      "type": "int",
+                      "value": 0
                     },
                     {
                       "name": "1 (29:27)",
                       "children": [],
                       "type": "int",
-                      "value": "1",
+                      "value": 1,
                       "loc": "29:27"
                     }
                   ],
-                  "type": "int"
+                  "type": "int",
+                  "value": 1
                 }
               ],
               "type": "int",
+              "value": 1,
               "loc": "29:11"
             },
             {
@@ -937,20 +998,23 @@
                           "name": "x (30:15)",
                           "children": [],
                           "type": "int",
+                          "value": 7,
                           "loc": "30:15"
                         },
                         {
                           "name": "7 (30:19)",
                           "children": [],
                           "type": "int",
-                          "value": "7",
+                          "value": 7,
                           "loc": "30:19"
                         }
                       ],
-                      "type": "bool"
+                      "type": "bool",
+                      "value": "false"
                     }
                   ],
-                  "type": "bool"
+                  "type": "bool",
+                  "value": "false"
                 },
                 {
                   "name": "Cuerpo",
@@ -961,6 +1025,8 @@
                         {
                           "name": "x (31:13)",
                           "children": [],
+                          "type": "int",
+                          "value": 7,
                           "loc": "31:13"
                         },
                         {
@@ -970,7 +1036,7 @@
                               "name": "6 (31:17)",
                               "children": [],
                               "type": "int",
-                              "value": "6",
+                              "value": 6,
                               "loc": "31:17"
                             },
                             {
@@ -986,14 +1052,14 @@
                                           "name": "8 (31:21)",
                                           "children": [],
                                           "type": "int",
-                                          "value": "8",
+                                          "value": 8,
                                           "loc": "31:21"
                                         },
                                         {
                                           "name": "9 (31:25)",
                                           "children": [],
                                           "type": "int",
-                                          "value": "9",
+                                          "value": 9,
                                           "loc": "31:25"
                                         }
                                       ],
@@ -1004,7 +1070,7 @@
                                       "name": "8 (31:29)",
                                       "children": [],
                                       "type": "int",
-                                      "value": "8",
+                                      "value": 8,
                                       "loc": "31:29"
                                     }
                                   ],
@@ -1015,7 +1081,7 @@
                                   "name": "3 (31:33)",
                                   "children": [],
                                   "type": "int",
-                                  "value": "3",
+                                  "value": 3,
                                   "loc": "31:33"
                                 }
                               ],
@@ -1076,10 +1142,12 @@
                 }
               ],
               "type": "bool",
+              "value": "false",
               "loc": "30:9"
             }
           ],
-          "type": "bool"
+          "type": "bool",
+          "value": "false"
         },
         {
           "name": "Condición",
@@ -1091,23 +1159,27 @@
                   "name": "y (35:11)",
                   "children": [],
                   "type": "int",
+                  "value": 1,
                   "loc": "35:11"
                 },
                 {
                   "name": "5 (35:16)",
                   "children": [],
                   "type": "int",
-                  "value": "5",
+                  "value": 5,
                   "loc": "35:16"
                 }
               ],
-              "type": "bool"
+              "type": "bool",
+              "value": "false"
             }
           ],
-          "type": "bool"
+          "type": "bool",
+          "value": "false"
         }
       ],
       "type": "bool",
+      "value": "false",
       "loc": "28:5"
     },
     {
@@ -1123,20 +1195,23 @@
                   "name": "y (36:11)",
                   "children": [],
                   "type": "int",
+                  "value": 1,
                   "loc": "36:11"
                 },
                 {
                   "name": "0 (36:16)",
                   "children": [],
                   "type": "int",
-                  "value": "0",
+                  "value": 0,
                   "loc": "36:16"
                 }
               ],
-              "type": "bool"
+              "type": "bool",
+              "value": "false"
             }
           ],
-          "type": "bool"
+          "type": "bool",
+          "value": "false"
         },
         {
           "name": "Cuerpo",
@@ -1159,17 +1234,21 @@
                   "name": "x (38:17)",
                   "children": [],
                   "type": "int",
+                  "value": 6,
                   "loc": "38:17"
                 }
               ],
               "type": "int",
+              "value": 6,
               "loc": "38:9"
             }
           ],
-          "type": "int"
+          "type": "int",
+          "value": 6
         }
       ],
       "type": "bool",
+      "value": "false",
       "loc": "36:5"
     },
     {

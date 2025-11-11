@@ -1,4 +1,0 @@
-VARIABLE_NO_DECLARADA	Variable 'suma' no declarada	4:5
-TIPO_INCOMPATIBLE	Incompatibilidad de tipos en asignación: no se puede asignar float a int	5:5
-TIPO_INCOMPATIBLE	Incompatibilidad de tipos en asignación: no se puede asignar float a int	14:5
-

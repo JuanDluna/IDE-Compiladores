@@ -514,9 +514,10 @@ class CompilerIDE(QMainWindow):
                 fill_semantic_tree_widget(self.semantic_analysis_tab, ast_root, annotations)
             
             # Mostrar tabla de símbolos en la pestaña "Tabla HASH" (solo la tabla)
-            tabla_texto = "nombre\ttipo\tambito\tdireccion\n"
+            tabla_texto = "nombre\ttipo\tambito\tvalor\tdireccion\n"
             for entry in tabla_simbolos:
-                tabla_texto += f"{entry['nombre']}\t{entry['tipo']}\t{entry['ambito']}\t{entry['direccion']}\n"
+                valor = entry.get('valor', '')
+                tabla_texto += f"{entry['nombre']}\t{entry['tipo']}\t{entry['ambito']}\t{valor}\t{entry['direccion']}\n"
             self.hash_table_tab.setPlainText(tabla_texto)
             
             # Mostrar errores en el panel de errores semánticos
@@ -657,16 +658,33 @@ def fill_semantic_tree_widget(widget: QTreeWidget, ast_root: ASTNode, annotation
         # Construir texto del nodo
         texto = node_name
         
-        # Agregar tipo si existe
+        # Agregar tipo o ERROR
         if tipo:
             texto += f" : {tipo}"
-        elif 'type' in node_annotations and node_annotations['type'] is None:
-            # Hay un error (tipo None indica error)
+        elif 'type' in node_annotations:
+            # Si 'type' está explícitamente en las anotaciones pero es None, hay un error
             texto += " : ERROR"
+        # Si no hay 'type' en las anotaciones, no agregamos nada (nodo sin anotación semántica)
         
-        # Agregar valor si existe
-        if valor is not None:
-            texto += f" = {valor}"
+        # Agregar valor si existe (solo si no hay error)
+        # Para nodos como "Expansión de ++", también mostrar el valor si está disponible
+        # Incluir valor incluso si es 0 (que es un valor válido)
+        if tipo is not None:  # Si hay tipo, intentar mostrar valor
+            if valor is not None:
+                # Formatear el valor apropiadamente
+                if isinstance(valor, float):
+                    # Mostrar float con precisión apropiada
+                    if valor.is_integer():
+                        texto += f" = {int(valor)}"
+                    else:
+                        # Limitar decimales para floats
+                        texto += f" = {valor:.6g}".rstrip('0').rstrip('.')
+                elif isinstance(valor, bool):
+                    texto += f" = {valor}"
+                elif isinstance(valor, (int, str)):
+                    texto += f" = {valor}"
+                else:
+                    texto += f" = {valor}"
         
         return texto
     
