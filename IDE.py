@@ -671,13 +671,25 @@ def fill_semantic_tree_widget(widget: QTreeWidget, ast_root: ASTNode, annotation
         # Incluir valor incluso si es 0 (que es un valor válido)
         if tipo is not None:  # Si hay tipo, intentar mostrar valor
             if valor is not None:
-                # Formatear el valor apropiadamente
-                if isinstance(valor, float):
-                    # Mostrar float con precisión apropiada
+                # Formatear el valor apropiadamente según el tipo
+                if tipo == 'float':
+                    # Si el tipo es float, siempre mostrar con decimales
+                    if isinstance(valor, float):
+                        if valor.is_integer():
+                            texto += f" = {valor:.1f}"
+                        else:
+                            # Limitar decimales para floats no enteros
+                            texto += f" = {valor:.6g}".rstrip('0').rstrip('.')
+                    elif isinstance(valor, int):
+                        # Si el valor es int pero el tipo es float, mostrar como float
+                        texto += f" = {float(valor):.1f}"
+                    else:
+                        texto += f" = {valor}"
+                elif isinstance(valor, float):
+                    # Si el valor es float pero el tipo no es float, mostrar normalmente
                     if valor.is_integer():
                         texto += f" = {int(valor)}"
                     else:
-                        # Limitar decimales para floats
                         texto += f" = {valor:.6g}".rstrip('0').rstrip('.')
                 elif isinstance(valor, bool):
                     texto += f" = {valor}"
