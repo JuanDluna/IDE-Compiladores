@@ -1,0 +1,133 @@
+main {
+    float NORTE1, NORTE2, NORTE3, NORTE4, NORTE5, NORTE6, NORTE7, NORTE8, NORTE9, NORTE10, NORTE11, NORTE12;
+    float CENTRO1, CENTRO2, CENTRO3, CENTRO4, CENTRO5, CENTRO6, CENTRO7, CENTRO8, CENTRO9, CENTRO10, CENTRO11, CENTRO12;
+    float SUR1, SUR2, SUR3, SUR4, SUR5, SUR6, SUR7, SUR8, SUR9, SUR10, SUR11, SUR12;
+    
+    float promedioCENTRO, totalCENTRO;
+    float minimoSUR, mesMinimoSUR;
+    float totalNORTE, totalSUR, totalCENTRO;
+    float maximoTotal;
+    int regionMaxima;
+    
+    cin >> NORTE1;
+    cin >> NORTE2;
+    cin >> NORTE3;
+    cin >> NORTE4;
+    cin >> NORTE5;
+    cin >> NORTE6;
+    cin >> NORTE7;
+    cin >> NORTE8;
+    cin >> NORTE9;
+    cin >> NORTE10;
+    cin >> NORTE11;
+    cin >> NORTE12;
+    
+    cin >> CENTRO1;
+    cin >> CENTRO2;
+    cin >> CENTRO3;
+    cin >> CENTRO4;
+    cin >> CENTRO5;
+    cin >> CENTRO6;
+    cin >> CENTRO7;
+    cin >> CENTRO8;
+    cin >> CENTRO9;
+    cin >> CENTRO10;
+    cin >> CENTRO11;
+    cin >> CENTRO12;
+    
+    cin >> SUR1;
+    cin >> SUR2;
+    cin >> SUR3;
+    cin >> SUR4;
+    cin >> SUR5;
+    cin >> SUR6;
+    cin >> SUR7;
+    cin >> SUR8;
+    cin >> SUR9;
+    cin >> SUR10;
+    cin >> SUR11;
+    cin >> SUR12;
+    
+    totalCENTRO = CENTRO1 + CENTRO2 + CENTRO3 + CENTRO4 + CENTRO5 + CENTRO6 + CENTRO7 + CENTRO8 + CENTRO9 + CENTRO10 + CENTRO11 + CENTRO12;
+    promedioCENTRO = totalCENTRO / 12.0;
+    
+    minimoSUR = SUR1;
+    mesMinimoSUR = 1.0;
+    
+    if SUR2 < minimoSUR then
+        minimoSUR = SUR2;
+        mesMinimoSUR = 2.0;
+    end
+    
+    if SUR3 < minimoSUR then
+        minimoSUR = SUR3;
+        mesMinimoSUR = 3.0;
+    end
+    
+    if SUR4 < minimoSUR then
+        minimoSUR = SUR4;
+        mesMinimoSUR = 4.0;
+    end
+    
+    if SUR5 < minimoSUR then
+        minimoSUR = SUR5;
+        mesMinimoSUR = 5.0;
+    end
+    
+    if SUR6 < minimoSUR then
+        minimoSUR = SUR6;
+        mesMinimoSUR = 6.0;
+    end
+    
+    if SUR7 < minimoSUR then
+        minimoSUR = SUR7;
+        mesMinimoSUR = 7.0;
+    end
+    
+    if SUR8 < minimoSUR then
+        minimoSUR = SUR8;
+        mesMinimoSUR = 8.0;
+    end
+    
+    if SUR9 < minimoSUR then
+        minimoSUR = SUR9;
+        mesMinimoSUR = 9.0;
+    end
+    
+    if SUR10 < minimoSUR then
+        minimoSUR = SUR10;
+        mesMinimoSUR = 10.0;
+    end
+    
+    if SUR11 < minimoSUR then
+        minimoSUR = SUR11;
+        mesMinimoSUR = 11.0;
+    end
+    
+    if SUR12 < minimoSUR then
+        minimoSUR = SUR12;
+        mesMinimoSUR = 12.0;
+    end
+    
+    totalNORTE = NORTE1 + NORTE2 + NORTE3 + NORTE4 + NORTE5 + NORTE6 + NORTE7 + NORTE8 + NORTE9 + NORTE10 + NORTE11 + NORTE12;
+    totalSUR = SUR1 + SUR2 + SUR3 + SUR4 + SUR5 + SUR6 + SUR7 + SUR8 + SUR9 + SUR10 + SUR11 + SUR12;
+    
+    maximoTotal = totalNORTE;
+    regionMaxima = 1;
+    
+    if totalCENTRO > maximoTotal then
+        maximoTotal = totalCENTRO;
+        regionMaxima = 2;
+    end
+    
+    if totalSUR > maximoTotal then
+        maximoTotal = totalSUR;
+        regionMaxima = 3;
+    end
+    
+    cout << promedioCENTRO;
+    cout << mesMinimoSUR;
+    cout << minimoSUR;
+    cout << regionMaxima;
+}
+

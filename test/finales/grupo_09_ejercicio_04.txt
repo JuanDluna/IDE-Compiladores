@@ -1,0 +1,30 @@
+main {
+    int M, num, divisor, contador, esPrimo;
+    int cantidadPrimos;
+    
+    cin >> M;
+    
+    cantidadPrimos = 0;
+    num = 2;
+    
+    while num < M do
+        esPrimo = 1;
+        divisor = 2;
+        
+        while divisor < num do
+            if num % divisor == 0 then
+                esPrimo = 0;
+            end
+            divisor = divisor + 1;
+        end
+        
+        if esPrimo == 1 then
+            cantidadPrimos = cantidadPrimos + 1;
+        end
+        
+        num = num + 1;
+    end
+    
+    cout << cantidadPrimos;
+}
+

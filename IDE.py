@@ -3,7 +3,8 @@ import re
 import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPlainTextEdit, QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, QTreeWidgetItem,
-    QTabWidget, QMenuBar, QMenu, QStatusBar, QFileDialog, QToolBar, QAction, QSplitter, QMessageBox
+    QTabWidget, QMenuBar, QMenu, QStatusBar, QFileDialog, QToolBar, QAction, QSplitter, QMessageBox,
+    QLineEdit, QPushButton, QLabel, QTextEdit
 )
 from PyQt5.QtGui import QTextCursor, QTextBlockFormat, QTextFormat, QPainter, QColor, QIcon, QFont
 from PyQt5.QtCore import Qt, QRect, QSize
@@ -248,20 +249,25 @@ class CompilerIDE(QMainWindow):
         self.semantic_analysis_tab = QTreeWidget()
         self.semantic_analysis_tab.setHeaderHidden(True)
         self.intermediate_code_tab = QPlainTextEdit()
-        self.execution_tab = QPlainTextEdit()
+        # Crear widget de ejecución interactivo
+        self.execution_widget = self._create_execution_widget()
         self.hash_table_tab = QPlainTextEdit()
 
         # Configurar los paneles de análisis como de solo lectura
         self.lexical_analysis_tab.setReadOnly(True)
         self.intermediate_code_tab.setReadOnly(True)
-        self.execution_tab.setReadOnly(True)
         self.hash_table_tab.setReadOnly(True)
+        
+        # Variables para el intérprete
+        self.tac_interpreter = None
+        self.tac_instructions = []
+        self.execution_running = False
 
         self.analysis_tabs.addTab(self.lexical_analysis_tab, "Análisis Léxico")
         self.analysis_tabs.addTab(self.syntax_analysis_tab, "Análisis Sintáctico")
         self.analysis_tabs.addTab(self.semantic_analysis_tab, "Análisis Semántico")
         self.analysis_tabs.addTab(self.intermediate_code_tab, "Código Intermedio")
-        self.analysis_tabs.addTab(self.execution_tab, "Ejecución")
+        self.analysis_tabs.addTab(self.execution_widget, "Ejecución")
         self.analysis_tabs.addTab(self.hash_table_tab, "Tabla HASH")
 
         # Panel de Errores (pestañas)
@@ -331,6 +337,10 @@ class CompilerIDE(QMainWindow):
         self.semantic_action = QAction("Análisis Semántico", self)
         self.semantic_action.triggered.connect(self.run_semantic_phase)
         self.compile_menu.addAction(self.semantic_action)
+        
+        self.intermediate_action = QAction("Código Intermedio", self)
+        self.intermediate_action.triggered.connect(self.run_intermediate_code_phase)
+        self.compile_menu.addAction(self.intermediate_action)
 
         # Barra de Estado
         self.status_bar = QStatusBar()
@@ -541,12 +551,64 @@ class CompilerIDE(QMainWindow):
             traceback.print_exc()
 
     def run_intermediate_code_phase(self):
+        """Genera código intermedio TAC y lo ejecuta."""
         try:
-            self.intermediate_code_tab.setPlainText("Generación de código intermedio aún no implementada.")
+            # Ejecutar primero el análisis semántico (que incluye sintáctico y léxico)
+            if not os.path.exists("tokens.txt") or not self.current_file_path:
+                self.run_semantic_phase()
+            else:
+                # Verificar si tenemos los resultados semánticos
+                try:
+                    ast_anotado, tabla_simbolos, errores, annotations, ast_root = semantic.get_semantic_results()
+                except:
+                    # Si falla, ejecutar análisis semántico completo
+                    self.run_semantic_phase()
+                    ast_anotado, tabla_simbolos, errores, annotations, ast_root = semantic.get_semantic_results()
+            
+            # Obtener resultados semánticos
+            ast_anotado, tabla_simbolos, errores, annotations, ast_root = semantic.get_semantic_results()
+            
+            if ast_root is None:
+                self.intermediate_code_tab.setPlainText("Error: No se pudo obtener el AST. Ejecuta primero el análisis semántico.")
+                return
+            
+            # Verificar si hay errores semánticos fatales
+            if errores and any(error.get('fatal', False) for error in errores):
+                self.intermediate_code_tab.setPlainText(
+                    "Error: No se puede generar código intermedio debido a errores semánticos fatales.\n"
+                    "Por favor, corrige los errores y vuelve a ejecutar el análisis semántico."
+                )
+                return
+            
+            # Generar código TAC (sin ejecutar aún)
+            generator = intermediate_code.TACGenerator(annotations, tabla_simbolos)
+            instructions = generator.generate_from_ast(ast_root)
+            
+            # Guardar instrucciones para ejecución interactiva
+            self.tac_instructions = instructions
+            
+            # Mostrar código TAC generado
+            tac_text = "\n".join(instructions) if instructions else "No se generaron instrucciones."
+            self.intermediate_code_tab.setPlainText(tac_text)
+            
+            # Mostrar mensaje en ejecución
+            if hasattr(self, 'execution_output'):
+                self.execution_output.clear()
+                self.execution_output.append("=== CÓDIGO TAC GENERADO ===\n")
+                self.execution_output.append("Presione 'Ejecutar' para iniciar la ejecución interactiva.\n")
+                self.execution_output.append(f"Total de instrucciones: {len(instructions)}\n")
+                if hasattr(self, 'execution_run_btn'):
+                    self.execution_run_btn.setEnabled(True)
+            
         except Exception as e:
-            self.intermediate_code_tab.setPlainText(f"Error durante la generación de código:\n{str(e)}")
+            error_msg = f"Error durante la generación de código intermedio:\n{str(e)}"
+            self.intermediate_code_tab.setPlainText(error_msg)
+            if hasattr(self, 'execution_output'):
+                self.execution_output.clear()
+                self.execution_output.append(error_msg)
             import traceback
             traceback.print_exc()
+    
 
     def check_for_changes(self):
         """Verifica si hay cambios no guardados en el editor."""
@@ -578,6 +640,299 @@ class CompilerIDE(QMainWindow):
         """Cierra la ventana principal."""
         self.close()
         return None
+    
+    def _create_execution_widget(self):
+        """Crea el widget de ejecución interactivo."""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        # Área de salida (read-only)
+        output_label = QLabel("Salida del Programa:")
+        self.execution_output = QTextEdit()
+        self.execution_output.setReadOnly(True)
+        self.execution_output.setFont(QFont("Courier", 10))
+        
+        # Área de estado (variables y código TAC actual)
+        state_label = QLabel("Estado de Ejecución (Variables y Código TAC):")
+        self.execution_state = QTextEdit()
+        self.execution_state.setReadOnly(True)
+        self.execution_state.setFont(QFont("Courier", 9))
+        self.execution_state.setMaximumHeight(200)
+        
+        # Área de entrada
+        input_label = QLabel("Entrada (escriba un valor y presione Enter o clic en Enviar):")
+        input_layout = QHBoxLayout()
+        self.execution_input = QLineEdit()
+        self.execution_input.setPlaceholderText("Ingrese un valor...")
+        self.execution_input.returnPressed.connect(self._send_input_value)
+        self.execution_send_btn = QPushButton("Enviar")
+        self.execution_send_btn.clicked.connect(self._send_input_value)
+        self.execution_send_btn.setEnabled(False)
+        input_layout.addWidget(self.execution_input)
+        input_layout.addWidget(self.execution_send_btn)
+        
+        # Botones de control
+        control_layout = QHBoxLayout()
+        self.execution_run_btn = QPushButton("Ejecutar")
+        self.execution_run_btn.clicked.connect(self._start_execution)
+        self.execution_stop_btn = QPushButton("Detener")
+        self.execution_stop_btn.clicked.connect(self._stop_execution)
+        self.execution_stop_btn.setEnabled(False)
+        self.execution_clear_btn = QPushButton("Limpiar")
+        self.execution_clear_btn.clicked.connect(self._clear_execution)
+        control_layout.addWidget(self.execution_run_btn)
+        control_layout.addWidget(self.execution_stop_btn)
+        control_layout.addWidget(self.execution_clear_btn)
+        control_layout.addStretch()
+        
+        # Ensamblar layout
+        layout.addWidget(output_label)
+        layout.addWidget(self.execution_output)
+        layout.addWidget(state_label)
+        layout.addWidget(self.execution_state)
+        layout.addWidget(input_label)
+        layout.addLayout(input_layout)
+        layout.addLayout(control_layout)
+        
+        widget.setLayout(layout)
+        return widget
+    
+    def _clear_execution(self):
+        """Limpia las áreas de ejecución."""
+        self.execution_output.clear()
+        self.execution_state.clear()
+        self.execution_input.clear()
+        self.tac_interpreter = None
+        self.tac_instructions = []
+        self.execution_running = False
+        self.execution_run_btn.setEnabled(True)
+        self.execution_stop_btn.setEnabled(False)
+        self.execution_send_btn.setEnabled(False)
+    
+    def _start_execution(self):
+        """Inicia la ejecución del código TAC."""
+        try:
+            # Obtener código TAC generado
+            if not self.tac_instructions:
+                # Intentar generar código TAC
+                if not os.path.exists("tokens.txt") or not self.current_file_path:
+                    QMessageBox.warning(self, "Advertencia", 
+                                      "Primero debe ejecutar el análisis semántico para generar código intermedio.")
+                    return
+                
+                try:
+                    ast_anotado, tabla_simbolos, errores, annotations, ast_root = semantic.get_semantic_results()
+                except:
+                    QMessageBox.warning(self, "Advertencia", 
+                                      "Primero debe ejecutar el análisis semántico.")
+                    return
+                
+                if ast_root is None:
+                    QMessageBox.warning(self, "Advertencia", 
+                                      "No se pudo obtener el AST.")
+                    return
+                
+                # Generar código TAC
+                from phases import intermediate_code
+                generator = intermediate_code.TACGenerator(annotations, tabla_simbolos)
+                self.tac_instructions = generator.generate_from_ast(ast_root)
+                
+                # Mostrar código TAC en la pestaña correspondiente
+                tac_text = "\n".join(self.tac_instructions) if self.tac_instructions else "No se generaron instrucciones."
+                self.intermediate_code_tab.setPlainText(tac_text)
+            
+            # Crear intérprete
+            from phases import intermediate_code
+            self.tac_interpreter = intermediate_code.TACInterpreter()
+            self.tac_interpreter.load_from_list(self.tac_instructions)
+            
+            # Configurar callbacks para entrada/salida
+            self.tac_interpreter.output_callback = self._on_output
+            self.tac_interpreter.input_callback = self._on_input_request
+            
+            # Iniciar ejecución
+            self.execution_running = True
+            self.execution_run_btn.setEnabled(False)
+            self.execution_stop_btn.setEnabled(True)
+            self.execution_output.clear()
+            self.execution_state.clear()
+            self.execution_output.append("=== INICIANDO EJECUCIÓN ===\n")
+            
+            # Ejecutar
+            self._execute_step()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error iniciando ejecución:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    def _execute_step(self):
+        """Ejecuta pasos del intérprete."""
+        if not self.execution_running or not self.tac_interpreter:
+            return
+        
+        try:
+            max_steps = 10000
+            steps = 0
+            
+            while self.execution_running and self.tac_interpreter.pc < len(self.tac_interpreter.instructions) and steps < max_steps:
+                instruction = self.tac_interpreter.instructions[self.tac_interpreter.pc].strip()
+                
+                # Saltar etiquetas
+                if instruction.endswith(':'):
+                    self.tac_interpreter.pc += 1
+                    continue
+                
+                # Ejecutar instrucción
+                result = self.tac_interpreter._execute_instruction(instruction)
+                
+                # Verificar si necesita pausar para entrada
+                if isinstance(result, tuple) and result[0] == "PAUSE":
+                    var_name = result[1]
+                    # Pausar y esperar entrada del usuario
+                    # El mensaje ya se muestra en el callback _on_input_request
+                    self._update_execution_state()
+                    self.execution_send_btn.setEnabled(True)
+                    self.execution_input.setFocus()
+                    return  # Pausar ejecución
+                
+                # Verificar error
+                if isinstance(result, tuple):
+                    success, error = result
+                    if not success:
+                        self.execution_output.append(f"ERROR: {error}")
+                        self.execution_running = False
+                        break
+                
+                # Avanzar contador de programa
+                self.tac_interpreter.pc += 1
+                steps += 1
+                
+                # Actualizar estado cada 5 pasos
+                if steps % 5 == 0:
+                    self._update_execution_state()
+            
+            # Verificar si terminó
+            if self.tac_interpreter.pc >= len(self.tac_interpreter.instructions):
+                self.execution_output.append("\n=== EJECUCIÓN COMPLETADA ===")
+                self.execution_running = False
+                self.execution_run_btn.setEnabled(True)
+                self.execution_stop_btn.setEnabled(False)
+                self.execution_send_btn.setEnabled(False)
+                self._update_execution_state()
+            elif steps >= max_steps:
+                self.execution_output.append(f"\n=== ADVERTENCIA: Límite de pasos alcanzado ({max_steps}) ===")
+                self.execution_running = False
+                self.execution_run_btn.setEnabled(True)
+                self.execution_stop_btn.setEnabled(False)
+                self.execution_send_btn.setEnabled(False)
+            
+        except Exception as e:
+            self.execution_output.append(f"ERROR: {str(e)}")
+            self.execution_running = False
+            self.execution_run_btn.setEnabled(True)
+            self.execution_stop_btn.setEnabled(False)
+            self.execution_send_btn.setEnabled(False)
+            import traceback
+            traceback.print_exc()
+    
+    def _update_execution_state(self):
+        """Actualiza el estado de ejecución mostrando variables y código actual."""
+        if not self.tac_interpreter:
+            return
+        
+        state_text = "=== ESTADO DE EJECUCIÓN ===\n\n"
+        
+        # Mostrar instrucción actual
+        if self.tac_interpreter.pc < len(self.tac_interpreter.instructions):
+            current_inst = self.tac_interpreter.instructions[self.tac_interpreter.pc]
+            state_text += f"Instrucción {self.tac_interpreter.pc}/{len(self.tac_interpreter.instructions)-1}:\n"
+            state_text += f"  {current_inst}\n\n"
+        
+        # Mostrar variables con valores
+        state_text += "=== VARIABLES Y TEMPORALES ===\n"
+        if self.tac_interpreter.memory:
+            variables = []
+            temporales = []
+            for var, value in sorted(self.tac_interpreter.memory.items()):
+                if var.startswith('t'):
+                    temporales.append((var, value))
+                else:
+                    variables.append((var, value))
+            
+            if variables:
+                state_text += "Variables:\n"
+                for var, value in variables:
+                    state_text += f"  {var} = {value}\n"
+            
+            if temporales:
+                state_text += "\nTemporales (últimos 5):\n"
+                for var, value in temporales[-5:]:
+                    state_text += f"  {var} = {value}\n"
+        else:
+            state_text += "(Sin variables asignadas aún)\n"
+        
+        self.execution_state.setPlainText(state_text)
+    
+    def _on_output(self, value):
+        """Callback para cuando el programa produce salida."""
+        self.execution_output.append(str(value))
+        self._update_execution_state()
+    
+    def _on_input_request(self, var_name):
+        """Callback para cuando el programa solicita entrada."""
+        # Solo mostrar el mensaje una vez
+        if not hasattr(self, '_last_input_request') or self._last_input_request != var_name:
+            self.execution_output.append(f"Esperando entrada para: {var_name}")
+            self._last_input_request = var_name
+        self._update_execution_state()
+    
+    def _send_input_value(self):
+        """Envía un valor de entrada al intérprete."""
+        if not self.execution_running or not self.tac_interpreter:
+            return
+        
+        value_str = self.execution_input.text().strip()
+        if not value_str:
+            return
+        
+        try:
+            # Convertir a número si es posible
+            if '.' in value_str:
+                value = float(value_str)
+            else:
+                value = int(value_str)
+        except ValueError:
+            value = value_str
+        
+        # Procesar la instrucción read que estaba pausada
+        if self.tac_interpreter.pc < len(self.tac_interpreter.instructions):
+            instruction = self.tac_interpreter.instructions[self.tac_interpreter.pc].strip()
+            if instruction.startswith("read "):
+                var = instruction[5:].strip()
+                # Asignar el valor directamente
+                self.tac_interpreter.set_value(var, value)
+                self.execution_output.append(f"Entrada recibida para {var}: {value}")
+                # Avanzar el PC
+                self.tac_interpreter.pc += 1
+            else:
+                # Si no es read, agregar a la cola (por si acaso)
+                self.tac_interpreter.input_queue.append(value)
+                self.execution_output.append(f"Entrada recibida: {value}")
+        
+        self.execution_input.clear()
+        self.execution_send_btn.setEnabled(False)
+        
+        # Continuar ejecución (que verificará si hay otro read)
+        self._execute_step()
+    
+    def _stop_execution(self):
+        """Detiene la ejecución."""
+        self.execution_running = False
+        self.execution_run_btn.setEnabled(True)
+        self.execution_stop_btn.setEnabled(False)
+        self.execution_send_btn.setEnabled(False)
+        self.execution_output.append("\n=== EJECUCIÓN DETENIDA POR EL USUARIO ===")
 
 def fill_tree_widget(widget: QTreeWidget, ast_root: ASTNode, error_output_widget: QPlainTextEdit, parser_errors: list):
     widget.clear()

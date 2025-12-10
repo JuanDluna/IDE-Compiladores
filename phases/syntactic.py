@@ -210,7 +210,7 @@ class Parser:
         return node
 
     def parse_while_stmt(self):
-        """while_stmt → while expresion bloque end"""
+        """while_stmt → while expresion do bloque end"""
         while_token = self.require("PALABRA_RESERVADA", "while")
         if not while_token:
             return None
@@ -223,6 +223,10 @@ class Parser:
             cond_node.add_child(expr)
             node.add_child(cond_node)
         else:
+            return None
+        
+        # Verificar 'do'
+        if not self.require("PALABRA_RESERVADA", "do"):
             return None
         
         # Bloque
@@ -437,7 +441,7 @@ class Parser:
         if not node:
             return None
         
-        while self.check("OPERADOR_ARITMETICO", ("+", "-")):
+        while self.check("OPERADOR_ARITMETICO", ("+", "-")) or self.check("OPERADOR", ("+", "-")):
             op_token = self.advance()
             if not op_token:
                 return self.error("Error inesperado en operador aritmético")
@@ -458,7 +462,7 @@ class Parser:
         if not node:
             return None
         
-        while self.check("OPERADOR_ARITMETICO", ("*", "/", "%")):
+        while self.check("OPERADOR_ARITMETICO", ("*", "/", "%")) or self.check("OPERADOR", ("*", "/", "%")):
             op_token = self.advance()
             if not op_token:
                 return self.error("Error inesperado en operador aritmético")
@@ -474,7 +478,7 @@ class Parser:
         return node
 
     def parse_factor(self):
-        """factor → numero | identificador | (expresion) | !factor"""
+        """factor → numero | identificador | (expresion) | !factor | -factor"""
         if not self.peek():
             return self.error("Se esperaba un factor")
         
@@ -489,6 +493,20 @@ class Parser:
                 return self.error("Se esperaba una expresión después de '!'")
             node.add_child(factor)
             return node
+        
+        # Número negativo (operador - seguido de número)
+        if self.check("OPERADOR", "-") or self.check("OPERADOR_ARITMETICO", "-"):
+            # Verificar si el siguiente token es un número
+            if self.current + 1 < len(self.tokens):
+                next_token = self.tokens[self.current + 1]
+                if next_token and next_token.tipo in ("NUMERO_ENTERO", "NUMERO_FLOTANTE"):
+                    # Es un número negativo
+                    minus_token = self.advance()
+                    num_token = self.advance()
+                    if minus_token and num_token:
+                        # Crear nodo con el número negativo
+                        negative_value = f"-{num_token.lexema}"
+                        return ASTNode(f"{negative_value} ({num_token.linea}:{num_token.columna})")
         
         # Paréntesis
         if self.match("DELIMITADOR", "("):

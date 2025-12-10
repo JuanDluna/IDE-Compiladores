@@ -1,0 +1,16 @@
+main {
+    float radio, altura, volumen, area;
+    float pi;
+    
+    pi = 3.14159;
+    
+    cin >> radio;
+    cin >> altura;
+    
+    volumen = pi * radio * radio * altura;
+    area = 2.0 * pi * radio * altura;
+    
+    cout << area;
+    cout << volumen;
+}
+

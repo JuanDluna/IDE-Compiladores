@@ -1,0 +1,10 @@
+main {
+    float h, T;
+    
+    cin >> h;
+    
+    T = h / 4.0 + 40.0;
+    
+    cout << T;
+}
+

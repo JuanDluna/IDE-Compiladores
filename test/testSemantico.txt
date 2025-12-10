@@ -37,4 +37,5 @@ main {
         cin >> mas;
         cout << x;
     end
+ x = true + 1;
 }

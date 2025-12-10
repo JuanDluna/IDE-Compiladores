@@ -34,15 +34,28 @@ def analizar_codigo_fuente(codigo):
             elif c.isdigit():
                 estado = "NUM_ENTERO"
                 lexema += c
+            elif c == "-" and i + 1 < longitud and codigo[i + 1].isdigit():
+                # Número negativo: - seguido de dígito (sin espacio)
+                estado = "NUM_ENTERO"
+                lexema += c
             elif c.isalpha() or c == "_":
                 estado = "IDENT"
                 lexema += c
             elif c == "/":
                 estado = "POSIBLE_COMENTARIO"
                 lexema += c
-            elif c in "+-*=<>!%":
+            elif c in "+*=<>!%":
                 estado = "OPERADOR"
                 lexema += c
+            elif c == "-":
+                # Verificar si es número negativo o operador
+                # Si el siguiente carácter es un dígito, es número negativo
+                if i + 1 < longitud and codigo[i + 1].isdigit():
+                    estado = "NUM_ENTERO"
+                    lexema += c
+                else:
+                    estado = "OPERADOR"
+                    lexema += c
             elif c in "&|":
                 estado = "OPERADOR_LOGICO_POTENCIAL"
                 lexema += c

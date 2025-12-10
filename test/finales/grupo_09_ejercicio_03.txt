@@ -1,0 +1,23 @@
+main {
+    float precioBasico, impuesto, precioTotal;
+    
+    cin >> precioBasico;
+    
+    if precioBasico <= 20.0 then
+        impuesto = 0.0;
+    else
+        if precioBasico <= 40.0 then
+            impuesto = (precioBasico - 20.0) * 0.30;
+        else
+            if precioBasico > 500.0 then
+                impuesto = 20.0 * 0.30 + (precioBasico - 40.0) * 0.50;
+            else
+                impuesto = 20.0 * 0.30 + (precioBasico - 40.0) * 0.40;
+            end
+        end
+    end
+    
+    precioTotal = precioBasico + impuesto;
+    cout << precioTotal;
+}
+
